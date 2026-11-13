@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Set up your store — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <main class="auth-wrap">
+    <div class="auth-card">
+      <a class="auth-brand" href="/">
+        <span class="brand-mark">K</span>
+        <span>Kudsi <span class="brand-accent">Shop</span></span>
+      </a>
+
+      <h1>Create your admin account</h1>
+      <p class="sub">
+        This is the owner account. It gets full access to customers, orders and products.
+        Everyone else who signs up becomes a customer.
+      </p>
+
+      <form id="setupForm" novalidate>
+        <div class="field">
+          <label for="name">Your name</label>
+          <input type="text" id="name" autocomplete="name" placeholder="Alex Doe" />
+        </div>
+        <div class="field">
+          <label for="email">Email address</label>
+          <input type="email" id="email" autocomplete="email" placeholder="you@example.com" required />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input type="password" id="password" autocomplete="new-password" placeholder="At least 8 characters" required />
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input type="password" id="confirm" autocomplete="new-password" placeholder="Repeat your password" required />
+        </div>
+        <button class="btn btn-primary btn-full" type="submit" id="submitBtn">Create admin account</button>
+        <p class="form-error" id="setupError" role="alert" hidden></p>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/api.js?v=5"></script>
+  <script>
+    const $ = (s) => document.querySelector(s);
+
+    (async function init() {
+      try {
+        const { needsSetup } = await api.get("/api/setup/status");
+        if (!needsSetup) {
+          window.location.href = "/login.html";
+          return;
+        }
+      } catch (error) {
+        console.error(error);
+      }
+      $("#email").focus();
+    })();
+
+    $("#setupForm").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      const box = $("#setupError");
+      const button = $("#submitBtn");
+      const email = $("#email").value.trim();
+      const password = $("#password").value;
+      const confirm = $("#confirm").value;
+
+      box.hidden = true;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+        box.textContent = "Enter a valid email address.";
+        box.hidden = false;
+        return;
+      }
+      if (password.length < 8) {
+        box.textContent = "Password must be at least 8 characters.";
+        box.hidden = false;
+        return;
+      }
+      if (password !== confirm) {
+        box.textContent = "Those passwords don't match.";
+        box.hidden = false;
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = "Creating…";
+      try {
+        await api.post("/api/setup", { email, password, name: $("#name").value.trim() });
+        window.location.href = "/admin.html";
+      } catch (error) {
+        box.textContent = error.message;
+        box.hidden = false;
+        button.disabled = false;
+        button.textContent = "Create admin account";
+      }
+    });
+  </script>
+</body>
+</html>

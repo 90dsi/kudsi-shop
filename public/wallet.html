@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wallet — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/ui.css?v=5" />
+</head>
+<body>
+  <div class="app">
+    <aside class="side" id="side">
+      <a class="side-brand" href="/dashboard.html">
+        <span class="brand-mark">K</span>
+        <span data-app-name>Kudsi Shop</span>
+      </a>
+      <nav class="side-group" aria-label="Account" style="overflow:auto;flex:1">
+        <span class="side-label">My account</span>
+        <a class="side-link" data-nav="overview" href="/dashboard.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+          <span>Overview</span>
+        </a>
+        <a class="side-link" data-nav="wallet" href="/wallet.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M2.5 10h19"/><path d="M16.5 15h2"/></svg>
+          <span>Wallet</span>
+        </a>
+        <a class="side-link" data-nav="orders" href="/account.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l4 4v16H6z"/><path d="M9 11h6M9 15h6M9 7h3"/></svg>
+          <span>My orders</span>
+        </a>
+        <a class="side-link" data-nav="messages" href="/messages.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/></svg>
+          <span>Support</span>
+        </a>
+        <span class="side-label">Discover</span>
+        <a class="side-link" data-nav="store" href="/">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="m3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+          <span>Browse store</span>
+        </a>
+      </nav>
+      <div class="side-foot">
+        <div class="side-user">
+          <span data-me-avatar></span>
+          <div class="who"><strong data-me-name>You</strong><span data-me-email></span></div>
+        </div>
+        <button class="side-link" type="button" id="signOutBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="side-scrim" id="sideScrim"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="iconbtn side-toggle" type="button" id="sideToggle" aria-label="Open menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <span class="topbar-title" id="topbarTitle">Wallet</span>
+        <span class="spacer"></span>
+        <div style="position:relative">
+          <button class="iconbtn" type="button" id="notifBtn" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="dot" id="notifBadge" hidden>0</span>
+          </button>
+          <div class="notif-panel glass" id="notifPanel" hidden>
+            <div class="notif-head">
+              <strong>Notifications</strong>
+              <button class="icon-btn-sm" type="button" id="markRead" hidden>Mark all read</button>
+            </div>
+            <div id="notifList" class="notif-list" style="padding:0.6rem">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
+        </div>
+        <a class="iconbtn" href="/dashboard.html" aria-label="Dashboard">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+        </a>
+      </header>
+
+      <div class="page">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">Money</span>
+            <h1 style="margin-top:0.6rem">Your wallet</h1>
+            <p>Top up, withdraw and track every movement — all in one place.</p>
+          </div>
+          <div class="row">
+            <a class="btn btn-ghost" href="/messages.html">Need help?</a>
+            <a class="btn btn-primary btn-glow" href="#topup" data-wtab-link="topup">+ Top up</a>
+          </div>
+        </div>
+
+        <!-- balance strip -->
+        <section class="balance-hero fade-up" style="margin-bottom:1.2rem">
+          <div class="balance-label">Available balance</div>
+          <div class="balance-amount" id="balanceAmount">$0.00</div>
+          <div class="balance-sub" id="balanceSub">Loading your wallet…</div>
+          <div class="balance-foot">
+            <div><span class="hint">Deposited</span><strong id="footDeposited">$0.00</strong></div>
+            <div><span class="hint">Withdrawn</span><strong id="footWithdrawn">$0.00</strong></div>
+            <div><span class="hint">Pending withdrawals</span><strong id="footPendingW">0</strong></div>
+            <div><span class="hint">Pending top-ups</span><strong id="footPendingT">0</strong></div>
+            <div><span class="hint">Transactions</span><strong id="footTx">0</strong></div>
+          </div>
+        </section>
+
+        <!-- tabs -->
+        <div class="wallet-tabs" role="tablist">
+          <button class="tab" type="button" role="tab" data-wtab="overview" aria-selected="true">Overview</button>
+          <button class="tab" type="button" role="tab" data-wtab="topup" aria-selected="false">Top up</button>
+          <button class="tab" type="button" role="tab" data-wtab="withdraw" aria-selected="false">Withdraw</button>
+          <button class="tab" type="button" role="tab" data-wtab="transactions" aria-selected="false">Transactions</button>
+        </div>
+
+        <!-- overview -->
+        <section id="panel-overview" class="stack" style="gap:1.1rem">
+          <div class="grid-2">
+            <div class="glass fade-up" style="padding:1.15rem">
+              <div class="section-title" style="margin:0 0 0.4rem">
+                <h2 style="font-size:0.98rem">Recent top-ups</h2>
+                <button class="icon-btn-sm" type="button" data-wtab-link="topup">Top up</button>
+              </div>
+              <div id="overviewTopups"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+            </div>
+            <div class="glass fade-up" style="padding:1.15rem">
+              <div class="section-title" style="margin:0 0 0.4rem">
+                <h2 style="font-size:0.98rem">Recent withdrawals</h2>
+                <button class="icon-btn-sm" type="button" data-wtab-link="withdraw">Withdraw</button>
+              </div>
+              <div id="overviewWithdrawals"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+            </div>
+          </div>
+
+          <div class="glass fade-up" style="padding:1.15rem">
+            <div class="section-title" style="margin:0 0 0.6rem">
+              <h2 style="font-size:0.98rem">Latest transactions</h2>
+              <button class="icon-btn-sm" type="button" data-wtab-link="transactions">View all</button>
+            </div>
+            <div id="overviewTx"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+          </div>
+
+          <div class="glass fade-up" style="padding:1.15rem">
+            <div class="section-title" style="margin:0 0 0.6rem">
+              <h2 style="font-size:0.98rem">How it works</h2>
+            </div>
+            <div class="grid-3">
+              <div class="mini-stat"><span>1 · Top up</span><strong style="font-size:0.9rem">Deposit funds</strong><p class="hint" style="margin-top:0.3rem">Choose a method, send the amount and submit the request.</p></div>
+              <div class="mini-stat"><span>2 · Review</span><strong style="font-size:0.9rem">Admin confirms</strong><p class="hint" style="margin-top:0.3rem">Payments are checked and credited to your balance.</p></div>
+              <div class="mini-stat"><span>3 · Withdraw</span><strong style="font-size:0.9rem">Cash out</strong><p class="hint" style="margin-top:0.3rem">Request a payout to PayPal, crypto or your bank.</p></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- top up -->
+        <section id="panel-topup" hidden>
+          <div class="grid-2" style="align-items:start">
+            <form class="glass fade-up" style="padding:1.2rem" id="topupForm" novalidate>
+              <div class="section-title" style="margin:0 0 0.9rem">
+                <h2 style="font-size:1rem">Add funds</h2>
+                <span class="hint" id="topupMinHint"></span>
+              </div>
+
+              <div class="field">
+                <label for="topupAmount">Amount</label>
+                <div class="amount-input">
+                  <span class="currency" data-symbol>$</span>
+                  <input type="number" id="topupAmount" min="0" step="0.01" inputmode="decimal" placeholder="0.00" autocomplete="off" />
+                </div>
+                <div class="quick-amounts" id="topupQuick"></div>
+              </div>
+
+              <div class="field">
+                <label>Payment method</label>
+                <div class="method-grid" id="topupMethods"></div>
+              </div>
+
+              <div class="field">
+                <label for="topupNote">Note <span class="hint">(optional)</span></label>
+                <textarea id="topupNote" rows="2" maxlength="300" placeholder="Anything we should know? e.g. sender name"></textarea>
+              </div>
+
+              <p class="form-error" id="topupError" hidden></p>
+              <button class="btn btn-primary btn-full" type="submit" id="topupSubmit">Create top-up request</button>
+              <p class="hint" style="margin-top:0.6rem;text-align:center">You'll get a reference to track. Nothing is charged automatically.</p>
+
+              <div id="topupResult" hidden style="margin-top:1rem"></div>
+            </form>
+
+            <div class="stack fade-up" style="gap:1rem">
+              <div class="glass" style="padding:1.15rem">
+                <div class="section-title" style="margin:0 0 0.7rem"><h2 style="font-size:0.98rem">Top-up history</h2><span class="hint" id="topupCount"></span></div>
+                <div id="topupHistory"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+              </div>
+              <div class="glass" style="padding:1.15rem">
+                <div class="section-title" style="margin:0 0 0.7rem"><h2 style="font-size:0.98rem">Need a hand?</h2></div>
+                <p class="hint" style="margin-bottom:0.8rem">Send proof of payment to support and we'll approve your top-up faster.</p>
+                <div class="contact-block" id="topupContacts"></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- withdraw -->
+        <section id="panel-withdraw" hidden>
+          <div class="grid-2" style="align-items:start">
+            <form class="glass fade-up" style="padding:1.2rem" id="withdrawForm" novalidate>
+              <div class="section-title" style="margin:0 0 0.9rem">
+                <h2 style="font-size:1rem">Request a payout</h2>
+                <span class="hint" id="withdrawMinHint"></span>
+              </div>
+
+              <div class="mini-stat" style="margin-bottom:1rem">
+                <span>Available to withdraw</span>
+                <strong id="withdrawAvailable">$0.00</strong>
+              </div>
+
+              <div class="field">
+                <label for="withdrawAmount">Amount</label>
+                <div class="amount-input">
+                  <span class="currency" data-symbol>$</span>
+                  <input type="number" id="withdrawAmount" min="0" step="0.01" inputmode="decimal" placeholder="0.00" autocomplete="off" />
+                </div>
+                <div class="quick-amounts" id="withdrawQuick"></div>
+              </div>
+
+              <div class="field">
+                <label>Payout method</label>
+                <div class="method-grid" id="withdrawMethods"></div>
+              </div>
+
+              <div class="field">
+                <label for="withdrawDetails" id="withdrawDetailsLabel">Payout details</label>
+                <textarea id="withdrawDetails" rows="3" maxlength="400" placeholder="Where should we send the money?"></textarea>
+              </div>
+
+              <label class="check" style="margin-bottom:0.9rem">
+                <input type="checkbox" id="withdrawConfirm" />
+                <span>I confirm these payout details are correct.</span>
+              </label>
+
+              <p class="form-error" id="withdrawError" hidden></p>
+              <button class="btn btn-primary btn-full" type="submit" id="withdrawSubmit">Request withdrawal</button>
+              <p class="hint" style="margin-top:0.6rem;text-align:center">The amount is reserved from your balance until an admin completes or rejects it. Rejections are refunded automatically.</p>
+            </form>
+
+            <div class="stack fade-up" style="gap:1rem">
+              <div class="glass" style="padding:1.15rem">
+                <div class="section-title" style="margin:0 0 0.7rem"><h2 style="font-size:0.98rem">Withdrawal history</h2><span class="hint" id="withdrawCount"></span></div>
+                <div id="withdrawHistory"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+              </div>
+              <div class="glass" style="padding:1.15rem">
+                <div class="section-title" style="margin:0 0 0.5rem"><h2 style="font-size:0.98rem">Good to know</h2></div>
+                <ul class="trust-list" style="font-size:0.83rem">
+                  <li><span class="tick">✓</span> Minimum payout: <strong id="withdrawMinNote">—</strong></li>
+                  <li><span class="tick">✓</span> Requests are reviewed within 24 hours.</li>
+                  <li><span class="tick">✓</span> Rejected requests return to your balance.</li>
+                  <li><span class="tick">✓</span> Payout details are only seen by admins.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- transactions -->
+        <section id="panel-transactions" hidden>
+          <div class="glass fade-up" style="padding:1.15rem">
+            <div class="section-title" style="margin:0 0 0.8rem">
+              <h2 style="font-size:1rem">Transaction ledger</h2>
+              <span class="hint" id="txTotal"></span>
+            </div>
+            <div class="pill-tabs" id="txFilters" style="margin-bottom:0.9rem">
+              <button class="pill-tab" type="button" data-tx-kind="" aria-selected="true">All</button>
+              <button class="pill-tab" type="button" data-tx-kind="topup" aria-selected="false">Top-ups</button>
+              <button class="pill-tab" type="button" data-tx-kind="withdrawal" aria-selected="false">Withdrawals</button>
+              <button class="pill-tab" type="button" data-tx-kind="withdrawal_refund" aria-selected="false">Refunds</button>
+              <button class="pill-tab" type="button" data-tx-kind="purchase" aria-selected="false">Purchases</button>
+              <button class="pill-tab" type="button" data-tx-kind="adjustment,bonus" aria-selected="false">Adjustments</button>
+            </div>
+            <div id="txTable"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+            <div class="row" style="justify-content:center;margin-top:0.9rem">
+              <button class="btn btn-ghost btn-sm" type="button" id="txMore" hidden>Load more</button>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js?v=5"></script>
+  <script src="/js/shell.js?v=5"></script>
+  <script src="/js/wallet.js?v=5"></script>
+</body>
+</html>

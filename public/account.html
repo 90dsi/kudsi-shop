@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My account — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">K</span>
+        <span class="brand-name">Kudsi <span class="brand-accent">Shop</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="account-link" href="/dashboard.html">Dashboard</a>
+        <a class="account-link" href="/wallet.html">Wallet</a>
+        <a class="account-link" href="/messages.html" id="messagesLink">Messages <span class="nav-badge" id="msgBadge" hidden>0</span></a>
+        <a class="account-link" href="/">Store</a>
+        <a class="account-link" href="/admin.html" id="adminLink" hidden>Admin</a>
+        <button class="account-link" type="button" id="signOutBtn">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1>My account</h1>
+        <p>Your details and order history.</p>
+      </div>
+    </div>
+
+    <div class="order-card" id="profileCard">
+      <div class="person" style="gap: 1rem">
+        <div id="avatarSlot"></div>
+        <div class="who" style="flex: 1">
+          <strong id="profileName" style="font-size: 1.05rem">Loading…</strong>
+          <span id="profileEmail"></span>
+        </div>
+        <span class="pill pill-customer" id="profileRole"></span>
+      </div>
+
+      <form id="profileForm" style="margin-top: 1.2rem">
+        <div class="form-grid">
+          <div class="field">
+            <label for="nameInput">Display name</label>
+            <input type="text" id="nameInput" placeholder="Your name" />
+          </div>
+          <div class="field">
+            <label for="avatarInput">Photo</label>
+            <input type="file" id="avatarInput" accept="image/*" />
+          </div>
+          <div class="field">
+            <label for="contactTypeInput">Deliver codes to</label>
+            <select id="contactTypeInput" style="height:44px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--text);font:inherit;padding:0 .6rem">
+              <option value="telegram">Telegram</option>
+              <option value="discord">Discord</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="contactInput">Telegram / Discord username</label>
+            <input type="text" id="contactInput" placeholder="@yourname" autocomplete="off" />
+          </div>
+        </div>
+        <div class="row" style="display: flex; gap: 0.5rem; align-items: center">
+          <button class="btn btn-primary" type="submit" id="saveProfile">Save changes</button>
+          <a class="btn btn-ghost" href="/messages.html">Messages</a>
+          <span class="small muted" id="profileStatus"></span>
+        </div>
+      </form>
+    </div>
+
+    <h2 style="font-size: 1.15rem; margin: 1.8rem 0 0.9rem">Order history</h2>
+    <div id="ordersList"><p class="empty-row">Loading orders…</p></div>
+  </main>
+
+  <script src="/js/api.js?v=5"></script>
+  <script src="/js/account.js"></script>
+</body>
+</html>

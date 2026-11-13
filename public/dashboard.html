@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/ui.css?v=5" />
+</head>
+<body>
+  <div class="app">
+    <aside class="side" id="side">
+      <a class="side-brand" href="/dashboard.html">
+        <span class="brand-mark">K</span>
+        <span data-app-name>Kudsi Shop</span>
+      </a>
+      <nav class="side-group" aria-label="Account" style="overflow:auto;flex:1">
+        <span class="side-label">My account</span>
+        <a class="side-link" data-nav="overview" href="/dashboard.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+          <span>Overview</span>
+        </a>
+        <a class="side-link" data-nav="wallet" href="/wallet.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M2.5 10h19"/><path d="M16.5 15h2"/></svg>
+          <span>Wallet</span>
+        </a>
+        <a class="side-link" data-nav="orders" href="/account.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l4 4v16H6z"/><path d="M9 11h6M9 15h6M9 7h3"/></svg>
+          <span>My orders</span>
+        </a>
+        <a class="side-link" data-nav="messages" href="/messages.html">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/></svg>
+          <span>Support</span>
+        </a>
+        <span class="side-label">Discover</span>
+        <a class="side-link" data-nav="store" href="/">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="m3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+          <span>Browse store</span>
+        </a>
+      </nav>
+      <div class="side-foot">
+        <div class="side-user">
+          <span data-me-avatar></span>
+          <div class="who"><strong data-me-name>You</strong><span data-me-email></span></div>
+        </div>
+        <button class="side-link" type="button" id="signOutBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="side-scrim" id="sideScrim"></div>
+
+    <div class="main">
+      <header class="topbar">
+        <button class="iconbtn side-toggle" type="button" id="sideToggle" aria-label="Open menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <span class="topbar-title" id="topbarTitle">Overview</span>
+        <span class="spacer"></span>
+        <div style="position:relative">
+          <button class="iconbtn" type="button" id="notifBtn" aria-label="Notifications">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+            <span class="dot" id="notifBadge" hidden>0</span>
+          </button>
+          <div class="notif-panel glass" id="notifPanel" hidden>
+            <div class="notif-head">
+              <strong>Notifications</strong>
+              <button class="icon-btn-sm" type="button" id="markRead" hidden>Mark all read</button>
+            </div>
+            <div id="notifList" class="notif-list" style="padding:0.6rem">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
+        </div>
+        <a class="iconbtn" href="/wallet.html" aria-label="Wallet">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M2.5 10h19"/></svg>
+        </a>
+      </header>
+
+      <div class="page">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">Your space</span>
+            <h1 style="margin-top:0.6rem">Hey, <span data-me-name>there</span> 👋</h1>
+            <p>Here's what's happening with your balance and orders.</p>
+          </div>
+          <div class="row">
+            <a class="btn btn-ghost" href="/wallet.html#withdraw">Withdraw</a>
+            <a class="btn btn-primary btn-glow" href="/wallet.html#topup">+ Top up balance</a>
+          </div>
+        </div>
+
+        <!-- balance hero -->
+        <section class="grid-2" style="align-items:start">
+          <div class="balance-hero fade-up">
+            <div class="balance-label">Available balance</div>
+            <div class="balance-amount" id="balanceAmount">$0.00</div>
+            <div class="balance-sub" id="balanceSub">Loading your wallet…</div>
+            <div class="balance-actions">
+              <a class="btn btn-primary btn-glow" href="/wallet.html#topup">Deposit</a>
+              <a class="btn btn-ghost" href="/wallet.html#withdraw">Withdraw</a>
+              <a class="btn btn-ghost" href="/">Shop now</a>
+            </div>
+            <div class="balance-foot">
+              <div><span class="hint">Deposited</span><strong id="footDeposited">$0.00</strong></div>
+              <div><span class="hint">Withdrawn</span><strong id="footWithdrawn">$0.00</strong></div>
+              <div><span class="hint">Transactions</span><strong id="footTx">0</strong></div>
+              <div><span class="hint">Pending</span><strong id="footPending">0</strong></div>
+            </div>
+          </div>
+
+          <!-- account card -->
+          <div class="glass fade-up" style="padding:1.2rem">
+            <div class="row" style="gap:0.8rem;flex-wrap:nowrap">
+              <span data-me-avatar-lg></span>
+              <div class="who" style="min-width:0">
+                <strong data-me-name style="font-size:1rem">You</strong>
+                <span class="hint" data-me-email style="display:block;overflow:hidden;text-overflow:ellipsis"></span>
+              </div>
+            </div>
+            <div class="divider"></div>
+            <div class="stack" style="gap:0.55rem;font-size:0.85rem">
+              <div class="row" style="justify-content:space-between"><span class="hint">Currency</span><strong id="infoCurrency">USD</strong></div>
+              <div class="row" style="justify-content:space-between"><span class="hint">Member since</span><strong id="infoJoined">—</strong></div>
+              <div class="row" style="justify-content:space-between"><span class="hint">Contact</span><strong id="infoContact">—</strong></div>
+              <div class="row" style="justify-content:space-between"><span class="hint">Min. withdrawal</span><strong id="infoMin">—</strong></div>
+            </div>
+            <div class="divider"></div>
+            <div class="row">
+              <a class="btn btn-ghost btn-sm" href="/account.html">Orders</a>
+              <a class="btn btn-ghost btn-sm" href="/messages.html">Support</a>
+            </div>
+          </div>
+        </section>
+
+        <!-- metrics -->
+        <section class="metric-grid" style="margin-top:1rem">
+          <div class="metric fade-up">
+            <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 19V5"/><path d="m5.5 11.5 6.5-6.5 6.5 6.5"/></svg></div>
+            <div class="label">Total deposited</div>
+            <div class="value" id="metricDeposited">$0.00</div>
+            <div class="delta up">approved top-ups</div>
+          </div>
+          <div class="metric fade-up">
+            <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 5v14"/><path d="m18.5 12.5-6.5 6.5-6.5-6.5"/></svg></div>
+            <div class="label">Total withdrawn</div>
+            <div class="value" id="metricWithdrawn">$0.00</div>
+            <div class="delta">completed payouts</div>
+          </div>
+          <div class="metric fade-up">
+            <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg></div>
+            <div class="label">Open requests</div>
+            <div class="value" id="metricPending">0</div>
+            <div class="delta" id="metricPendingSub">nothing waiting</div>
+          </div>
+          <div class="metric fade-up">
+            <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+            <div class="label">Recent orders</div>
+            <div class="value" id="metricOrders">0</div>
+            <div class="delta">last 50 shown in orders</div>
+          </div>
+        </section>
+
+        <!-- chart + notifications -->
+        <section class="grid-2" style="margin-top:1.2rem">
+          <div class="glass fade-up" style="padding:1.2rem">
+            <div class="section-title" style="margin:0 0 0.6rem">
+              <h2>Wallet activity</h2>
+              <span class="hint">last 14 days</span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="walletChart" height="230" aria-label="Deposits and withdrawals"></canvas>
+            </div>
+            <div class="chart-legend">
+              <span><i style="background:#31e1c0"></i>Deposits</span>
+              <span><i style="background:#7c5cff"></i>Withdrawals</span>
+            </div>
+          </div>
+
+          <div class="glass fade-up" style="padding:1.2rem">
+            <div class="section-title" style="margin:0 0 0.5rem">
+              <h2>Notification centre</h2>
+              <button class="icon-btn-sm" type="button" id="dashMarkRead">Mark read</button>
+            </div>
+            <div id="dashNotifications" class="notif-list">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- recent transactions + orders -->
+        <section class="grid-2" style="margin-top:1.2rem">
+          <div class="glass fade-up" style="padding:1.2rem">
+            <div class="section-title" style="margin:0 0 0.5rem">
+              <h2>Recent transactions</h2>
+              <a href="/wallet.html#transactions">View all</a>
+            </div>
+            <div id="recentTransactions">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
+          <div class="glass fade-up" style="padding:1.2rem">
+            <div class="section-title" style="margin:0 0 0.5rem">
+              <h2>Recent orders</h2>
+              <a href="/account.html">View all</a>
+            </div>
+            <div id="recentOrders">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/api.js?v=5"></script>
+  <script src="/js/chart.js"></script>
+  <script src="/js/shell.js?v=5"></script>
+  <script src="/js/dashboard.js?v=5"></script>
+</body>
+</html>

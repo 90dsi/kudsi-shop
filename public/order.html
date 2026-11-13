@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Order — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">K</span>
+        <span class="brand-name">Kudsi <span class="brand-accent">Shop</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="account-link" href="/messages.html">Messages</a>
+        <a class="account-link" href="/account.html">My orders</a>
+        <a class="account-link" href="/">Store</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-shell" style="max-width: 720px">
+    <div id="orderBox"><p class="empty-row"><span class="spinner"></span> Loading order…</p></div>
+  </main>
+
+  <script src="/js/api.js?v=5"></script>
+  <script src="/js/order.js"></script>
+</body>
+</html>
