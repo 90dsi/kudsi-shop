@@ -1,45 +1,75 @@
 #!/usr/bin/env bash
-# Run this in a PythonAnywhere Bash console (free accounts get 2 consoles).
+# One-shot bootstrap for PythonAnywhere (free "Beginner" account).
 #
-#   bash setup.sh https://github.com/YOURNAME/kudsi-shop.git
+#   1) Get the code there first, either:
+#        git clone https://github.com/YOURNAME/kudsi-shop.git ~/kudsi-shop
+#      or unzip an uploaded kudsi-shop.zip into ~/kudsi-shop
 #
-# It clones the repo, creates a virtualenv and installs the dependencies.
-# After that, create the web app in the PythonAnywhere UI and point its WSGI
-# file at deploy/pythonanywhere/wsgi.py.
+#   2) Then run this script:
+#        bash ~/kudsi-shop/deploy/pythonanywhere/setup.sh
+#
+# It creates ~/kudsi-data, a virtualenv at ~/.virtualenvs/kudsi, installs the
+# dependencies and writes a starting .env (edit SECRET_KEY + PUBLIC_BASE_URL).
+#
+# Optional: pass a repo URL and it clones when the folder is missing:
+#        bash setup.sh https://github.com/YOURNAME/kudsi-shop.git
 
 set -euo pipefail
 
-REPO_URL="${1:?Usage: bash setup.sh <git-repo-url>}"
+REPO_URL="${1:-}"
 CODE_DIR="$HOME/kudsi-shop"
 DATA_DIR="$HOME/kudsi-data"
 VENV="$HOME/.virtualenvs/kudsi"
 
-if [ -d "$CODE_DIR/.git" ]; then
-  git -C "$CODE_DIR" pull --ff-only
-else
+if [ -n "$REPO_URL" ] && [ ! -d "$CODE_DIR/.git" ]; then
+  echo "==> Cloning $REPO_URL"
   git clone "$REPO_URL" "$CODE_DIR"
 fi
 
-mkdir -p "$DATA_DIR"
-
-python3 -m venv "$VENV"
-# shellcheck disable=SC1091
-source "$VENV/bin/activate"
-pip install --upgrade pip
-pip install -r "$CODE_DIR/requirements.txt"
-
-if [ ! -f "$CODE_DIR/.env" ]; then
-  cp "$CODE_DIR/deploy/pythonanywhere/env.example" "$CODE_DIR/.env"
-  echo
-  echo "Created $CODE_DIR/.env - edit it now and set SECRET_KEY + PUBLIC_BASE_URL:"
-  echo "  nano $CODE_DIR/.env"
+if [ ! -f "$CODE_DIR/app.py" ]; then
+  echo "Code not found in $CODE_DIR." >&2
+  echo "Clone it first:  git clone <repo-url> $CODE_DIR" >&2
+  exit 1
 fi
 
-echo
-echo "Next steps:"
-echo "  1. Upload your existing database to $DATA_DIR/store.db (Files tab)."
-echo "  2. PythonAnywhere -> Web -> Add a new web app -> Manual config -> Flask"
-echo "     Python 3.13, source: $CODE_DIR"
-echo "     WSGI file: $CODE_DIR/deploy/pythonanywhere/wsgi.py"
-echo "  3. Add $VENV to the web app's virtualenv setting."
-echo "  4. Press Reload."
+echo "==> Creating $DATA_DIR (the database lives here, outside the code)"
+mkdir -p "$DATA_DIR"
+
+echo "==> Creating virtualenv $VENV"
+if [ ! -d "$VENV" ]; then
+  python3 -m venv "$VENV"
+fi
+# shellcheck disable=SC1091
+source "$VENV/bin/activate"
+pip install --upgrade --quiet pip
+pip install --quiet -r "$CODE_DIR/requirements.txt"
+
+if [ ! -f "$CODE_DIR/.env" ]; then
+  echo "==> Writing $CODE_DIR/.env"
+  cp "$CODE_DIR/deploy/pythonanywhere/env.example" "$CODE_DIR/.env"
+  SECRET=$(python -c "import secrets; print(secrets.token_hex(32))")
+  # Replace the placeholder key and point the base URL at this account.
+  sed -i "s|^SECRET_KEY=.*|SECRET_KEY=$SECRET|" "$CODE_DIR/.env"
+  sed -i "s|^PUBLIC_BASE_URL=.*|PUBLIC_BASE_URL=https://$(whoami).pythonanywhere.com|" "$CODE_DIR/.env"
+  echo "    SECRET_KEY and PUBLIC_BASE_URL were filled in automatically."
+else
+  echo "==> Keeping the existing $CODE_DIR/.env"
+fi
+
+cat <<EOF
+
+Done. Next:
+
+  1. Upload your database to  $DATA_DIR/store.db
+     (Files tab -> kudsi-data -> Upload a file)
+
+  2. Web tab -> Add a new web app -> Manual configuration -> newest Python 3
+       Source code:        $CODE_DIR
+       Working directory:  $CODE_DIR
+       Virtualenv:         $VENV
+       WSGI file:          paste the contents of
+                           $CODE_DIR/deploy/pythonanywhere/wsgi.py
+
+  3. Press Reload, then open https://$(whoami).pythonanywhere.com
+
+EOF

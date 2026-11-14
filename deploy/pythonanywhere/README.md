@@ -30,34 +30,38 @@ Pick **one** of these.
 
 ### A. From a Git repository (recommended)
 
-Put this project on GitHub first (from your PC):
+Put this project on GitHub first (from your PC) — already done if you cloned the repo
+we pushed:
 
 ```powershell
 & "C:\Program Files\Git\cmd\git.exe" remote add origin https://github.com/<you>/kudsi-shop.git
 & "C:\Program Files\Git\cmd\git.exe" push -u origin main
 ```
 
-Then in PythonAnywhere open **Consoles → Bash** and run:
+Then in PythonAnywhere open **Consoles → Bash**, clone it, and run the bootstrap:
 
 ```bash
-bash ~/kudsi-shop/deploy/pythonanywhere/setup.sh https://github.com/<you>/kudsi-shop.git
+cd ~
+git clone https://github.com/<you>/kudsi-shop.git
+bash ~/kudsi-shop/deploy/pythonanywhere/setup.sh
 ```
 
-If the repo is private, the first `git clone` asks for your GitHub username and a
-personal access token (GitHub → Settings → Developer settings → Personal access tokens).
+If the repo is private, the `git clone` asks for your GitHub username and a personal
+access token (GitHub → Settings → Developer settings → Personal access tokens) in place
+of the password — or make the repo public and it clones without a prompt.
 
 ### B. Without GitHub (zip upload)
 
-1. On your PC, zip the project **excluding** `data/` and `.env`.
-2. PythonAnywhere → **Files** → upload the zip to `/home/<username>/`.
+1. On your PC, build the bundle:
+   ```powershell
+   powershell -ExecutionPolicy Bypass -File deploy\pythonanywhere\make-bundle.ps1
+   ```
+2. PythonAnywhere → **Files** → upload `kudsi-shop.zip` to `/home/<username>/`.
 3. In a **Bash** console:
 
 ```bash
-cd ~ && unzip kudsi-shop.zip -d kudsi-shop && rm kudsi-shop.zip
-mkdir -p ~/kudsi-data
-python3 -m venv ~/.virtualenvs/kudsi
-source ~/.virtualenvs/kudsi/bin/activate
-pip install -r ~/kudsi-shop/requirements.txt
+cd ~ && unzip kudsi-shop.zip && rm kudsi-shop.zip
+bash ~/kudsi-shop/deploy/pythonanywhere/setup.sh
 ```
 
 ## 3. Copy your database
@@ -74,29 +78,27 @@ on the server (that just logs everyone out once).
 
 > If you start empty instead, `/setup` will ask for an admin email and password.
 
-## 4. Configure the environment
+## 4. Check the environment file
 
-In a Bash console:
+`setup.sh` already wrote `.env` with a random `SECRET_KEY` and
+`PUBLIC_BASE_URL=https://<username>.pythonanywhere.com`. Confirm it:
 
 ```bash
-cd ~/kudsi-shop
-cp deploy/pythonanywhere/env.example .env
-python -c "import secrets; print(secrets.token_hex(32))"   # copy the output
-nano .env
+cat ~/kudsi-shop/.env
 ```
 
-Set:
+It should look like this:
 
 ```
-SECRET_KEY=<the hex string you just generated>
-PUBLIC_BASE_URL=https://<username>.pythonanywhere.com
+SECRET_KEY=<64 random hex characters>
 COOKIE_SECURE=1
 TRUST_PROXY=1
 DISABLE_PAYMENT_WATCHER=1
+PUBLIC_BASE_URL=https://<username>.pythonanywhere.com
 PAYMENTS_ALLOW_SANDBOX=0
 ```
 
-Save with `Ctrl+O`, `Enter`, then `Ctrl+X`.
+Change anything with `nano ~/kudsi-shop/.env` (`Ctrl+O`, `Enter`, `Ctrl+X` to save).
 
 ## 5. Create the web app
 
