@@ -369,6 +369,15 @@ function renderTopupResult(result) {
       <p>${esc(result.network || "")}</p>
       <p class="hint" style="margin-top:0.5rem">Address</p>
       <div class="copy-field"><code>${esc(result.address || "")}</code><button class="icon-btn-sm" type="button" data-copy="${esc(result.address || "")}">Copy</button></div>
+      ${
+        topup.id
+          ? `<img class="pay-qr" src="/api/wallet/topups/${encodeURIComponent(topup.id)}/qr.svg"
+               alt="QR code to pay this top-up" width="190" height="190" loading="lazy" />
+             <p class="pay-qr-label">Scan with your wallet app${
+               result.asset === "BTC" || result.asset === "LTC" ? " — the address and exact amount are filled in" : ""
+             }</p>`
+          : ""
+      }
       ${result.instructions ? `<p class="hint" style="margin-top:0.6rem">${esc(result.instructions)}</p>` : ""}
       ${result.image ? `<img src="${esc(result.image)}" alt="Payment QR" style="max-width:180px;border-radius:12px;margin-top:0.7rem" />` : ""}
       <p class="hint" style="margin-top:0.7rem">${result.autoVerify ? "We check the blockchain automatically — credit usually lands within minutes." : "After paying, send the transaction hash to support so an admin can approve it."}</p>`;
@@ -376,6 +385,13 @@ function renderTopupResult(result) {
     body += `
       <div class="divider"></div>
       <p class="hint">Complete the payment on Binance Pay, then your balance is credited automatically.</p>
+      ${
+        result.checkoutUrl && topup.id
+          ? `<img class="pay-qr" src="/api/wallet/topups/${encodeURIComponent(topup.id)}/qr.svg"
+               alt="Binance Pay QR code for top-up ${esc(topup.id)}" width="190" height="190" loading="lazy" />
+             <p class="pay-qr-label">Scan to open Binance Pay</p>`
+          : ""
+      }
       ${result.checkoutUrl ? `<a class="btn btn-primary btn-full" style="margin-top:0.8rem" href="${esc(result.checkoutUrl)}" target="_blank" rel="noopener">Open Binance Pay</a>` : `<p class="hint" style="margin-top:0.7rem">A Binance Pay link could not be created. Contact support with reference ${esc(topup.id || "")}.</p>`}`;
   } else {
     body += `

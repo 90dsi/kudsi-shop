@@ -1342,6 +1342,24 @@ select#sortSelect {
 .pay-note { font-size: 0.8rem; color: #b6c0d4; background: rgba(108, 92, 231, 0.1); border: 1px solid rgba(108, 92, 231, 0.3); border-radius: 8px; padding: 0.55rem 0.7rem; }
 .pay-warning { font-size: 0.78rem; color: #ffd35c; }
 
+/* ---- payment QR ---- */
+.pay-qr {
+  display: block;
+  width: 190px;
+  height: 190px;
+  margin: 0.7rem auto 0.3rem;
+  padding: 10px;
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.3);
+}
+.pay-qr-label {
+  text-align: center;
+  font-size: 0.78rem;
+  color: #9aa4b8;
+  margin: 0;
+}
+
 /* ---- codes ---- */
 .code-list { display: grid; gap: 0.45rem; margin: 0.9rem 0; }
 .code-row {

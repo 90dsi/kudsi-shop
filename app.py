@@ -13,7 +13,7 @@ import time
 from datetime import timedelta
 from pathlib import Path
 
-from flask import Flask, g, jsonify, redirect, request, send_from_directory, session
+from flask import Flask, Response, g, jsonify, redirect, request, send_from_directory, session
 from werkzeug.middleware.proxy_fix import ProxyFix
 
 import auth
@@ -22,6 +22,7 @@ import delivery
 import mailer
 import notify
 import payments
+import payqr
 import wallet
 from db import (
     DATA_DIR,
@@ -947,6 +948,22 @@ def get_order(order_id):
     return jsonify(order=order_json(order, items, include_codes=show_codes))
 
 
+@app.get("/api/orders/<order_id>/qr.svg")
+@auth.login_required
+def order_qr(order_id):
+    order, _ = load_order(order_id)
+    if not order or not can_view(order):
+        return err("Order not found.", 404)
+    text = payqr.order_payload(order)
+    if not text:
+        return err("No payment details to encode yet.", 404)
+    return Response(
+        payqr.svg(text),
+        mimetype="image/svg+xml",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/api/orders/<order_id>/status")
 @auth.login_required
 def order_status(order_id):
@@ -1291,6 +1308,23 @@ def create_topup():
         }
 
     return jsonify(payload), 201
+
+
+@app.get("/api/wallet/topups/<topup_id>/qr.svg")
+@auth.login_required
+def topup_qr(topup_id):
+    user = auth.current_user()
+    row = fetch_one("SELECT * FROM topups WHERE id = ?", (topup_id,))
+    if not row or (row["user_id"] != user["id"] and user["role"] != "admin"):
+        return err("Top-up not found.", 404)
+    text = payqr.topup_payload(row)
+    if not text:
+        return err("No payment details to encode yet.", 404)
+    return Response(
+        payqr.svg(text),
+        mimetype="image/svg+xml",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 @app.post("/api/wallet/topups/<topup_id>/cancel")

@@ -97,7 +97,14 @@ function renderPayment(order) {
     return `
       <div class="order-card" style="margin-bottom:1rem">
         <h2 style="font-size:1.05rem;margin-bottom:0.4rem">Waiting for Binance Pay</h2>
-        <p class="small muted">This page updates automatically once Binance confirms your payment.</p>
+        <p class="small muted">Scan with your phone, or use the button below — Binance opens with this order ready.</p>
+        ${
+          order.checkoutUrl
+            ? `<img class="pay-qr" src="/api/orders/${encodeURIComponent(order.id)}/qr.svg"
+                 alt="Binance Pay QR code for order ${esc(order.id)}" width="190" height="190" loading="lazy" />
+               <p class="pay-qr-label">Scan to open Binance Pay</p>`
+            : ""
+        }
         <div style="display:grid;gap:0.5rem;margin-top:0.9rem">
           ${order.checkoutUrl ? `<a class="btn btn-primary btn-full" href="${esc(order.checkoutUrl)}" target="_blank" rel="noopener">Open Binance Pay ↗</a>` : ""}
           <button class="btn btn-ghost btn-full" type="button" id="verifyBtn">Check payment status</button>
@@ -130,6 +137,15 @@ function renderPayment(order) {
         }
         ${order.payAmount ? copyField("Exact amount", `${order.payAmount} ${order.payAsset || ""}`.trim()) : ""}
         ${order.payAddress ? copyField("Address", order.payAddress) : ""}
+        ${
+          order.payAddress
+            ? `<img class="pay-qr" src="/api/orders/${encodeURIComponent(order.id)}/qr.svg"
+                 alt="QR code to pay ${esc(order.payAsset || "this order")}" width="190" height="190" loading="lazy" />
+               <p class="pay-qr-label">Scan with your wallet app${
+                 order.payAsset === "BTC" || order.payAsset === "LTC" ? " — the address and exact amount are filled in" : ""
+               }</p>`
+            : ""
+        }
         ${order.payImage ? `<img class="pay-image" src="${esc(order.payImage)}" alt="Payment details" />` : ""}
         <p class="small muted">The unique amount is how your payment is matched. Send it exactly.</p>
         <button class="btn btn-primary btn-full" type="button" id="verifyBtn">I've paid — check now</button>

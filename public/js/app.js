@@ -442,6 +442,13 @@ function renderPayDetails(modal, order, pay) {
       <h2>Pay ${esc(pay.amount)} ${esc(pay.currency)}</h2>
       <p class="sub">Order <strong>${esc(order.id)}</strong> · Binance Pay</p>
       <div class="pay-block">
+        ${
+          pay.checkoutUrl
+            ? `<img class="pay-qr" src="/api/orders/${encodeURIComponent(order.id)}/qr.svg"
+                 alt="Binance Pay QR code for order ${esc(order.id)}" width="190" height="190" loading="lazy" />
+               <p class="pay-qr-label">Scan to open Binance Pay</p>`
+            : ""
+        }
         <a class="btn btn-primary btn-full" href="${esc(pay.checkoutUrl)}" target="_blank" rel="noopener">
           Open Binance Pay ↗
         </a>
@@ -480,6 +487,15 @@ function renderPayDetails(modal, order, pay) {
       }
       ${copyField("Amount", pay.amount)}
       ${copyField("Address", pay.address)}
+      ${
+        pay.address
+          ? `<img class="pay-qr" src="/api/orders/${encodeURIComponent(order.id)}/qr.svg"
+               alt="QR code to pay ${esc(pay.asset || "this order")}" width="190" height="190" loading="lazy" />
+             <p class="pay-qr-label">Scan with your wallet app${
+               pay.asset === "BTC" || pay.asset === "LTC" ? " — the address and exact amount are filled in" : ""
+             }</p>`
+          : ""
+      }
       ${pay.image ? `<img class="pay-image" src="${esc(pay.image)}" alt="Payment details" />` : ""}
       <p class="small muted">Send <strong>exactly</strong> ${esc(pay.amount)} ${esc(pay.asset)} — the unique amount is how your payment is matched.</p>
       <button class="btn btn-ghost btn-full" type="button" id="checkPayment">I've paid — check now</button>
