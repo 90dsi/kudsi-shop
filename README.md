@@ -1,5 +1,9 @@
 # Kudsi Shop — digital store with accounts, messaging and crypto payments
 
+> **Live site:** <https://90dsi.pythonanywhere.com> — free PythonAnywhere hosting,
+> deployed from this repository. See [deploy/pythonanywhere](deploy/pythonanywhere/README.md)
+> for the deployment guide and the free-tier limits.
+
 A complete shop for game cards, gift cards and subscriptions:
 
 - **Customer database** (SQLite) — every buyer is an account with email, name, photo
@@ -266,6 +270,18 @@ named Cloudflare tunnel with your own domain, or deploy to a VPS and run
 Step-by-step guide: **[deploy/pythonanywhere/README.md](deploy/pythonanywhere/README.md)**
 — a free `<username>.pythonanywhere.com` URL that keeps running when your PC is off,
 with SQLite stored outside the code directory so it survives redeploys.
+
+This project is already deployed at <https://90dsi.pythonanywhere.com>. On that host:
+
+- `store.db` lives in `~/kudsi-data` (outside the repo), uploaded from `data/store.db`.
+- `.env` holds `SECRET_KEY`, `PUBLIC_BASE_URL`, `COOKIE_SECURE=1`, `TRUST_PROXY=1`,
+  `DISABLE_PAYMENT_WATCHER=1`, `PAYMENTS_ALLOW_SANDBOX=0`.
+- CoinGecko and `blockstream.info` are reachable, but **`litecoinspace.org` is not**, so
+  LTC has automatic verification off and a manual rate; BTC stays automatic.
+- To update: `git push` locally, then in a PythonAnywhere Bash console
+  `cd ~/kudsi-shop && git pull --ff-only`, then **Reload** on the Web tab.
+- Free accounts pause web apps that go 3 months without a visit — open the site now and
+  then to keep it alive.
 
 ### Containers (Railway, Fly.io, any VPS)
 
