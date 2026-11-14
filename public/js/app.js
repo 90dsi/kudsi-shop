@@ -488,21 +488,22 @@ function renderPayDetails(modal, order, pay) {
       <h2>Pay ${esc(amount)}</h2>
       <p class="sub">Order <strong>${esc(order.id)}</strong> · Binance Pay</p>
       <div class="pay-block">
-        <p class="pay-note">${esc(pay.instructions || "Scan with the Binance app or send to the Binance Pay ID below, then submit the transaction ID.")}</p>
+        <p class="pay-note">${esc(pay.instructions || "Scan with the Binance app or send to the Binance Pay ID below, then submit the transaction ID or a screenshot.")}</p>
         ${qr ? `${qr}<p class="pay-qr-label">Scan with the Binance app to pay</p>` : ""}
         ${payId && !isQrLink(payId) ? copyField("Binance Pay ID", payId) : ""}
         <p class="small muted">Send exactly <strong>${esc(amount)}</strong> and add order <strong>${esc(order.id)}</strong> in the note.</p>
         <div class="pay-txid">
+          <p class="small muted">Enter the TXID, or upload a screenshot instead — one is enough.</p>
           <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
           <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
                  placeholder="Paste the TXID from your Binance receipt" />
           <div class="proof-upload">
-            <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(optional)</span></label>
+            <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(or use this instead)</span></label>
             <input id="binanceProof" type="file" accept="image/*" />
             <img class="proof-thumb" id="proofPreview" alt="Payment screenshot" hidden />
           </div>
           <button class="btn btn-primary btn-full" type="button" id="submitTxid">Submit payment proof</button>
-          <p class="pay-qr-label" id="txidNote">Your order stays pending until the TXID is checked.</p>
+          <p class="pay-qr-label" id="txidNote">Your order stays pending until an admin checks the proof.</p>
         </div>
         <button class="btn btn-ghost btn-full" type="button" id="checkPayment">Check payment status</button>
       </div>
@@ -517,19 +518,19 @@ function renderPayDetails(modal, order, pay) {
     panel.querySelector("#submitTxid").addEventListener("click", async () => {
       const button = panel.querySelector("#submitTxid");
       const value = (panel.querySelector("#binanceTxid").value || "").trim();
-      if (!value) {
-        showError(modal, "Paste the Binance transaction ID.");
+      const file = panel.querySelector("#binanceProof").files[0];
+      if (!value && !file) {
+        showError(modal, "Enter the TXID or upload a screenshot.");
         return;
       }
       button.disabled = true;
       button.textContent = "Submitting…";
       try {
-        const file = panel.querySelector("#binanceProof").files[0];
         const proof = file ? await fileToProof(file) : "";
         await api.post(`/api/orders/${order.id}/txid`, { txid: value, proof });
         panel.querySelector("#txidNote").textContent =
-          "TXID received. An admin will confirm it and release your codes.";
-        button.textContent = "TXID submitted";
+          "Proof received. An admin will confirm it and release your codes.";
+        button.textContent = "Proof submitted";
       } catch (error) {
         showError(modal, error.message);
         button.disabled = false;

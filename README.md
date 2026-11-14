@@ -131,9 +131,9 @@ Each method is one row: **label**, **type** (`Direct crypto` or `Binance Pay`),
   URIs so the wallet app prefills the address and the unique amount.
 - **Binance Pay** — paste your **Binance Pay ID** (for example `1026195358`) or the
   link from your Binance Pay QR (`https://app.binance.com/uni-qr/...`), and optionally
-  upload the QR picture. Customers scan/send, then submit the Binance **transaction ID
-  (TXID)** and optionally a payment screenshot; an admin checks it in Orders and marks
-  the order paid. With working merchant keys you can tick "Verify with the Binance
+  upload the QR picture. Customers scan/send, then submit either the Binance
+  **transaction ID (TXID)** or a **payment screenshot**; an admin checks it in Orders and
+  marks the order paid. With working merchant keys you can tick "Verify with the Binance
   merchant API" for automatic confirmation (see section 4).
 - **Hide / show** without deleting: the Hide button on the row, or uncheck "Show at
   checkout". Existing orders keep their details.
@@ -201,13 +201,12 @@ If the merchant API is unavailable (for example on PythonAnywhere free, where
    **payment picture**.
 3. Leave **Verify with the Binance merchant API** unchecked and enable the method.
 4. At checkout the customer sees the QR/Pay ID and the amount, pays in Binance, and
-   must paste the **transaction ID** from the Binance receipt (orders and wallet
-   top-ups both require it). They can also attach an optional **payment screenshot**;
-   the image is compressed in the browser and kept private behind the customer/admin
-   login.
-5. Check the TXID in your Binance app (the order/top-up view shows a clickable
-   screenshot thumbnail), then use **Orders → Manage → Mark as paid** (or approve the
-   top-up). Manual payments are never auto-marked paid.
+   submits **either** the **transaction ID** from the Binance receipt **or** a payment
+   screenshot (orders and wallet top-ups both require one of them). Screenshots are
+   compressed in the browser and kept private behind the customer/admin login.
+5. Check the proof in your Binance app (the order/top-up view shows the TXID and a
+   clickable screenshot thumbnail), then use **Orders → Manage → Mark as paid** (or
+   approve the top-up). Manual payments are never auto-marked paid.
 
 ## 5. Email (password resets only)
 

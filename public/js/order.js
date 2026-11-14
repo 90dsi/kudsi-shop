@@ -216,16 +216,17 @@ function binanceManualPanel(order) {
       </div>
       <p class="small muted">${esc(order.methodLabel || "Binance Pay")} · confirmed by an admin</p>
       <div class="pay-block">
-        <p class="pay-note">${esc(order.payInstructions || "Scan with the Binance app or send to the Binance Pay ID below, then submit the transaction ID.")}</p>
+        <p class="pay-note">${esc(order.payInstructions || "Scan with the Binance app or send to the Binance Pay ID below, then submit the transaction ID or a screenshot.")}</p>
         ${qr ? `${qr}<p class="pay-qr-label">Scan with the Binance app to pay</p>` : ""}
         ${payId && !isQrLink(payId) ? copyField("Binance Pay ID", payId) : ""}
         <p class="small muted">Send exactly <strong>${esc(amount)}</strong> and add order <strong>${esc(order.id)}</strong> in the note.</p>
         <div class="pay-txid">
+          <p class="small muted">Enter the TXID, or upload a screenshot instead — one is enough.</p>
           <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
           <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
                  placeholder="Paste the TXID from your Binance receipt" value="${esc(order.txid || "")}" />
           <div class="proof-upload">
-            <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(optional)</span></label>
+            <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(or use this instead)</span></label>
             <input id="binanceProof" type="file" accept="image/*" />
             <img class="proof-thumb" id="proofPreview" alt="Payment screenshot"
                  ${order.hasProof ? `src="/api/orders/${encodeURIComponent(order.id)}/proof"` : "hidden"} />
@@ -234,7 +235,9 @@ function binanceManualPanel(order) {
           <p class="pay-qr-label" id="txidNote">${
             order.txid
               ? "TXID received. An admin will confirm it and release your codes."
-              : "Required — your order stays pending until the TXID is checked."
+              : order.hasProof
+                ? "Screenshot received. An admin will confirm it and release your codes."
+                : "Required — send the TXID or a screenshot, then submit it here."
           }</p>
         </div>
         <button class="btn btn-ghost btn-full" type="button" id="verifyBtn">Check payment status</button>
@@ -362,11 +365,12 @@ function bindActions(order) {
     submitTxid.addEventListener("click", async () => {
       const input = $("#binanceTxid");
       const value = (input ? input.value : "").trim();
-      if (!value) return showPayError("Paste the Binance transaction ID.");
+      const file = proofInput && proofInput.files[0];
+      if (!value && !file) return showPayError("Enter the TXID or upload a screenshot.");
       submitTxid.disabled = true;
       submitTxid.textContent = "Submitting…";
       try {
-        const proof = proofInput && proofInput.files[0] ? await fileToProof(proofInput.files[0]) : "";
+        const proof = file ? await fileToProof(file) : "";
         const res = await api.post(`/api/orders/${order.id}/txid`, { txid: value, proof });
         render(res.order);
       } catch (error) {

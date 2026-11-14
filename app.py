@@ -1218,30 +1218,36 @@ def submit_order_txid(order_id):
         return err("This order does not need a Binance transaction ID.")
 
     txid = clean(body().get("txid"), 160)
-    if len(txid) < 6:
-        return err("Paste the full transaction ID from your Binance receipt.")
-    if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
-        return err("That doesn't look like a transaction ID.")
     proof, proof_err = clean_proof(body().get("proof"))
     if proof_err:
         return err(proof_err)
+    if not txid and not proof:
+        return err("Enter the transaction ID or upload a payment screenshot.")
+    if txid:
+        if len(txid) < 6:
+            return err("Paste the full transaction ID from your Binance receipt.")
+        if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
+            return err("That doesn't look like a transaction ID.")
 
     execute(
-        "UPDATE orders SET txid = ?, proof = COALESCE(?, proof) "
+        "UPDATE orders SET txid = COALESCE(NULLIF(?, ''), txid), proof = COALESCE(?, proof) "
         "WHERE id = ? AND status = 'pending'",
         (txid, proof or None, order_id),
     )
     user = auth.current_user()
+    lines = [
+        f"Order: {order_id}",
+        f"Customer: {user['name'] or user['email']}",
+        f"Amount: {(order['pay_amount'] or '')} {(order['pay_asset'] or '')}".strip(),
+    ]
+    if txid:
+        lines.append(f"TXID: {txid}")
+    if proof:
+        lines.append("Screenshot: attached")
     notify.emit(
         "binance_txid",
         "Binance payment proof submitted",
-        [
-            f"Order: {order_id}",
-            f"Customer: {user['name'] or user['email']}",
-            f"Amount: {(order['pay_amount'] or '')} {(order['pay_asset'] or '')}".strip(),
-            f"TXID: {txid}",
-            "Screenshot: attached" if proof else "",
-        ],
+        lines,
         customer=user["email"],
         status="pending",
         url=f"{base_url()}/admin.html#orders",
@@ -1517,29 +1523,36 @@ def topup_txid(topup_id):
         return err("This top-up does not need a Binance transaction ID.")
 
     txid = clean(body().get("txid"), 160)
-    if len(txid) < 6:
-        return err("Paste the full transaction ID from your Binance receipt.")
-    if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
-        return err("That doesn't look like a transaction ID.")
     proof, proof_err = clean_proof(body().get("proof"))
     if proof_err:
         return err(proof_err)
+    if not txid and not proof:
+        return err("Enter the transaction ID or upload a payment screenshot.")
+    if txid:
+        if len(txid) < 6:
+            return err("Paste the full transaction ID from your Binance receipt.")
+        if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
+            return err("That doesn't look like a transaction ID.")
 
     execute(
-        "UPDATE topups SET txid = ?, proof = COALESCE(?, proof) "
+        "UPDATE topups SET txid = COALESCE(NULLIF(?, ''), txid), proof = COALESCE(?, proof) "
         "WHERE id = ? AND status = 'pending'",
         (txid, proof or None, topup_id),
     )
+    user = auth.current_user()
+    lines = [
+        f"Top-up: {topup_id}",
+        f"Customer: {user['name'] or user['email']}",
+        f"Amount: {wallet.fmt(row['amount_cents'])}",
+    ]
+    if txid:
+        lines.append(f"TXID: {txid}")
+    if proof:
+        lines.append("Screenshot: attached")
     notify.emit(
         "topup_txid",
         "Binance top-up proof submitted",
-        [
-            f"Top-up: {topup_id}",
-            f"Customer: {user['name'] or user['email']}",
-            f"Amount: {wallet.fmt(row['amount_cents'])}",
-            f"TXID: {txid}",
-            "Screenshot: attached" if proof else "",
-        ],
+        lines,
         customer=user["email"],
         status="pending",
         url=f"{base_url()}/admin.html#topups",

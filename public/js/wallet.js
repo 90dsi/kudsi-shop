@@ -432,7 +432,7 @@ function renderTopupResult(result) {
         : "";
     body += `
       <div class="divider"></div>
-      <p class="hint">Scan with the Binance app or send to the ID below, then submit the transaction ID. An admin credits your balance after checking it.</p>
+      <p class="hint">Scan with the Binance app or send to the ID below, then submit the TXID or a screenshot. An admin credits your balance after checking it.</p>
       ${qr ? `${qr}<p class="pay-qr-label">Scan with the Binance app to pay</p>` : ""}
       ${
         payId && !isQrLink(payId)
@@ -442,11 +442,12 @@ function renderTopupResult(result) {
       }
       <p class="hint" style="margin-top:0.6rem">Send exactly ${esc(amount)} and add reference ${esc(topup.id || "")} in the note.</p>
       <div class="pay-txid">
+        <p class="small muted">Enter the TXID, or upload a screenshot instead — one is enough.</p>
         <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
         <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
                placeholder="Paste the TXID from your Binance receipt" value="${esc(topup.txid || "")}" />
         <div class="proof-upload">
-          <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(optional)</span></label>
+          <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(or use this instead)</span></label>
           <input id="binanceProof" type="file" accept="image/*" />
           <img class="proof-thumb" id="proofPreview" alt="Payment screenshot"
                ${topup.hasProof ? `src="/api/wallet/topups/${encodeURIComponent(topup.id)}/proof"` : "hidden"} />
@@ -455,7 +456,9 @@ function renderTopupResult(result) {
         <p class="pay-qr-label" id="txidNote">${
           topup.txid
             ? "TXID received. An admin will approve your top-up."
-            : "Required — your top-up stays pending until the TXID is checked."
+            : topup.hasProof
+              ? "Screenshot received. An admin will approve your top-up."
+              : "Required — send the TXID or a screenshot, then submit it here."
         }</p>
       </div>`;
   } else if (result.method === "binance") {
@@ -499,17 +502,18 @@ function renderTopupResult(result) {
       const value = ($("#binanceTxid").value || "").trim();
       const errorBox = $("#topupError");
       if (errorBox) errorBox.hidden = true;
-      if (!value) {
-        if (errorBox) showError(errorBox, "Paste the Binance transaction ID.");
+      const file = proofInput && proofInput.files[0];
+      if (!value && !file) {
+        if (errorBox) showError(errorBox, "Enter the TXID or upload a screenshot.");
         return;
       }
       submitTxid.disabled = true;
       submitTxid.textContent = "Submitting…";
       try {
-        const proof = proofInput && proofInput.files[0] ? await fileToProof(proofInput.files[0]) : "";
+        const proof = file ? await fileToProof(file) : "";
         await api.post(`/api/wallet/topups/${encodeURIComponent(topup.id)}/txid`, { txid: value, proof });
-        $("#txidNote").textContent = "TXID received. An admin will approve your top-up.";
-        submitTxid.textContent = "TXID submitted";
+        $("#txidNote").textContent = "Proof received. An admin will approve your top-up.";
+        submitTxid.textContent = "Proof submitted";
       } catch (error) {
         if (errorBox) showError(errorBox, error.message);
         submitTxid.disabled = false;
