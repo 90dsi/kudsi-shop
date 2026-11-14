@@ -30,11 +30,12 @@ function setMode(next) {
   $("#password").placeholder = signup ? "At least 8 characters" : "Your password";
   $("#passwordHint").hidden = !signup;
   $("#altText").textContent = signup ? "Already have an account?" : "New here?";
-  $("#altLink").textContent = signup ? "Sign in" : "Create an account";
+  $("#altLink").textContent = signup ? "Login!" : "Create an account";
   $("#authError").hidden = true;
   $("#authError").classList.remove("ok");
   $("#suspendedNote").hidden = !params.get("suspended");
   if (!forgot) setTimeout(() => $("#email").focus(), 60);
+  setModeParam(signup ? "signup" : "login");
 }
 
 $("#altLink").addEventListener("click", (e) => {
@@ -87,12 +88,42 @@ $("#authForm").addEventListener("submit", async (e) => {
     const fallback = user.role === "admin" ? "/admin.html" : "/dashboard.html";
     window.location.href = redirectTo && redirectTo.startsWith("/") ? redirectTo : fallback;
   } catch (error) {
+    const code = error.payload && error.payload.code;
+    if (code === "no_account") {
+      // No account with that email: move the visitor to the create-account form,
+      // keeping their email so they only have to pick a password.
+      setMode("signup");
+      $("#email").value = email;
+      errorBox.textContent = `No account exists for ${email} yet. Create one below — it takes a few seconds.`;
+      errorBox.classList.add("ok");
+      errorBox.hidden = false;
+      button.disabled = false;
+      return;
+    }
+    if (code === "account_exists") {
+      // They tried to sign up with an address that is already registered.
+      setMode("login");
+      $("#email").value = email;
+      errorBox.textContent = "That email already has an account. Enter your password to sign in.";
+      errorBox.classList.add("ok");
+      errorBox.hidden = false;
+      button.disabled = false;
+      return;
+    }
     errorBox.textContent = error.message;
     errorBox.hidden = false;
     button.disabled = false;
     button.textContent = original;
   }
 });
+
+/** Keep the address bar in step with the visible form so Back/Refresh behave. */
+function setModeParam(next) {
+  const url = new URL(window.location.href);
+  if (next === "signup") url.searchParams.set("mode", "signup");
+  else url.searchParams.delete("mode");
+  window.history.replaceState(null, "", url);
+}
 
 (async function init() {
   loadSite().then((site) => {

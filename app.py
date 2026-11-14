@@ -514,7 +514,10 @@ def signup():
     if len(password) < 8:
         return err("Password must be at least 8 characters.")
     if fetch_one("SELECT id FROM users WHERE email = ?", (email,)):
-        return err("That email already has an account. Sign in instead.", 409)
+        return jsonify(
+            error="That email already has an account. Sign in instead.",
+            code="account_exists",
+        ), 409
 
     uid = execute(
         "INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'customer')",
@@ -533,7 +536,11 @@ def login():
     password = str(data.get("password") or "")
 
     user = fetch_one("SELECT * FROM users WHERE email = ?", (email,))
-    if not user or not auth.verify_password(password, user["password_hash"]):
+    if not user:
+        # The sign-in page uses this code to send the visitor to the create-account
+        # form instead of leaving them stuck. Rate limiting still applies.
+        return jsonify(error="No account found for that email.", code="no_account"), 404
+    if not auth.verify_password(password, user["password_hash"]):
         return err("Wrong email or password.", 401)
     if user.get("status", "active") != "active":
         return err(
