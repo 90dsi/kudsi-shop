@@ -394,6 +394,11 @@ function orderModalBody(o) {
       <div class="row"><span>Customer</span><span>${esc(o.email)}</span></div>
       <div class="row"><span>Contact</span><span>${o.contact && o.contact.handle ? `${esc(o.contact.type === "discord" ? "Discord" : "Telegram")}: <strong>${esc(o.contact.handle)}</strong>` : `<span class="pay-warning">missing</span>`}</span></div>
       <div class="row"><span>Payment</span><span>${payDetails(o)}</span></div>
+      ${
+        o.hasProof
+          ? `<div class="row"><span>Screenshot</span><span><a href="/api/orders/${encodeURIComponent(o.id)}/proof" target="_blank" rel="noopener"><img class="proof-thumb" src="/api/orders/${encodeURIComponent(o.id)}/proof" alt="Payment screenshot" /></a></span></div>`
+          : ""
+      }
       <div class="row"><span>Placed</span><span>${today(o.createdAt)}</span></div>
       <div class="row"><span>Paid</span><span>${o.paidAt ? today(o.paidAt) : "—"}</span></div>
       <div class="row"><span>Delivered</span><span>${o.deliveredAt ? today(o.deliveredAt) : "—"}</span></div>

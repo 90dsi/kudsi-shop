@@ -4,6 +4,7 @@ Run:  python app.py        (then open http://localhost:3000)
 First visit: /setup creates your admin account.
 """
 
+import base64
 import json
 import os
 import re
@@ -359,6 +360,7 @@ def order_json(order: dict, items: list[dict], include_codes: bool = False) -> d
         "payAsset": order["pay_asset"],
         "payId": method["address"] if method and method["kind"] == "binance" else None,
         "txid": order["txid"],
+        "hasProof": bool(order.get("proof")),
         "contact": {"type": order["contact_type"], "handle": order["contact_handle"]},
         "deliveredAt": order["delivered_at"],
         "createdAt": order["created_at"],
@@ -386,6 +388,46 @@ def order_json(order: dict, items: list[dict], include_codes: bool = False) -> d
                 {"code": c["code"], "name": delivery.code_label(c)} for c in codes
             ]
     return data
+
+
+PROOF_RE = re.compile(r"^data:(image/(?:png|jpe?g|webp|gif));base64,")
+
+
+def clean_proof(value) -> tuple[str | None, str | None]:
+    """Validate an uploaded payment screenshot (data URL). Returns (value, error)."""
+    value = str(value or "").strip()
+    if not value:
+        return "", None
+    if len(value) > 700_000:
+        return None, "That screenshot is too large - use one under 500 KB."
+    if not PROOF_RE.match(value):
+        return None, "Upload a PNG, JPG, WebP or GIF screenshot."
+    return value, None
+
+
+def proof_response(value):
+    value = (value or "").strip()
+    if not value:
+        return err("No screenshot attached.", 404)
+    if value.startswith(("http://", "https://")):
+        return redirect(value)
+    match = PROOF_RE.match(value)
+    if not match:
+        return err("No screenshot attached.", 404)
+    try:
+        raw = base64.b64decode(value[match.end():], validate=False)
+    except Exception:  # noqa: BLE001
+        return err("No screenshot attached.", 404)
+    if not raw:
+        return err("No screenshot attached.", 404)
+    return Response(
+        raw,
+        mimetype=match.group(1),
+        headers={
+            "Cache-Control": "no-store",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 def load_order(order_id: str) -> tuple[dict | None, list[dict]]:
@@ -1030,7 +1072,7 @@ def pay(order_id):
             expires = int(time.time()) + 3600
             execute(
                 "UPDATE orders SET provider = 'binance', provider_ref = NULL, pay_address = ?, "
-                "pay_amount = ?, pay_asset = ?, checkout_url = NULL, txid = NULL, expires_at = ? WHERE id = ?",
+                "pay_amount = ?, pay_asset = ?, checkout_url = NULL, txid = NULL, proof = NULL, expires_at = ? WHERE id = ?",
                 (pay_id or None, amount, cfg["currency"], expires, order_id),
             )
             return jsonify(
@@ -1063,7 +1105,7 @@ def pay(order_id):
                 return manual_binance()
             return err(str(exc), 502)
         execute(
-            "UPDATE orders SET provider = 'binance', provider_ref = ?, checkout_url = ?, txid = NULL, expires_at = ? "
+            "UPDATE orders SET provider = 'binance', provider_ref = ?, checkout_url = ?, txid = NULL, proof = NULL, expires_at = ? "
             "WHERE id = ?",
             (result["prepay_id"], result["checkout_url"], result["expire_time"], order_id),
         )
@@ -1087,7 +1129,7 @@ def pay(order_id):
     expires = int(time.time()) + 3600
     execute(
         """UPDATE orders SET provider = ?, pay_address = ?, pay_amount = ?, pay_asset = ?,
-           checkout_url = NULL, txid = NULL, expires_at = ? WHERE id = ?""",
+           checkout_url = NULL, txid = NULL, proof = NULL, expires_at = ? WHERE id = ?""",
         (method["id"], method["address"], amount, method["asset"], expires, order_id),
     )
     return jsonify(
@@ -1180,10 +1222,14 @@ def submit_order_txid(order_id):
         return err("Paste the full transaction ID from your Binance receipt.")
     if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
         return err("That doesn't look like a transaction ID.")
+    proof, proof_err = clean_proof(body().get("proof"))
+    if proof_err:
+        return err(proof_err)
 
     execute(
-        "UPDATE orders SET txid = ? WHERE id = ? AND status = 'pending'",
-        (txid, order_id),
+        "UPDATE orders SET txid = ?, proof = COALESCE(?, proof) "
+        "WHERE id = ? AND status = 'pending'",
+        (txid, proof or None, order_id),
     )
     user = auth.current_user()
     notify.emit(
@@ -1194,6 +1240,7 @@ def submit_order_txid(order_id):
             f"Customer: {user['name'] or user['email']}",
             f"Amount: {(order['pay_amount'] or '')} {(order['pay_asset'] or '')}".strip(),
             f"TXID: {txid}",
+            "Screenshot: attached" if proof else "",
         ],
         customer=user["email"],
         status="pending",
@@ -1202,6 +1249,15 @@ def submit_order_txid(order_id):
     order, items = load_order(order_id)
     show_codes = user["role"] == "admin" or setting_bool("codes_visible")
     return jsonify(order=order_json(order, items, include_codes=show_codes))
+
+
+@app.get("/api/orders/<order_id>/proof")
+@auth.login_required
+def order_proof(order_id):
+    order, _ = load_order(order_id)
+    if not order or not can_view(order):
+        return err("Order not found.", 404)
+    return proof_response(order["proof"])
 
 
 @app.post("/api/dev/pay/<order_id>")
@@ -1457,10 +1513,7 @@ def topup_txid(topup_id):
     if row["status"] != "pending":
         return err("This top-up is already decided.")
     method = fetch_one("SELECT * FROM payment_methods WHERE id = ?", (row["method"],))
-    manual = bool(method) and method["kind"] == "binance" and (
-        not method["auto_verify"] or not payments.config()["binance_enabled"]
-    )
-    if not manual:
+    if not method or method["kind"] != "binance":
         return err("This top-up does not need a Binance transaction ID.")
 
     txid = clean(body().get("txid"), 160)
@@ -1468,10 +1521,14 @@ def topup_txid(topup_id):
         return err("Paste the full transaction ID from your Binance receipt.")
     if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
         return err("That doesn't look like a transaction ID.")
+    proof, proof_err = clean_proof(body().get("proof"))
+    if proof_err:
+        return err(proof_err)
 
     execute(
-        "UPDATE topups SET txid = ? WHERE id = ? AND status = 'pending'",
-        (txid, topup_id),
+        "UPDATE topups SET txid = ?, proof = COALESCE(?, proof) "
+        "WHERE id = ? AND status = 'pending'",
+        (txid, proof or None, topup_id),
     )
     notify.emit(
         "topup_txid",
@@ -1481,12 +1538,23 @@ def topup_txid(topup_id):
             f"Customer: {user['name'] or user['email']}",
             f"Amount: {wallet.fmt(row['amount_cents'])}",
             f"TXID: {txid}",
+            "Screenshot: attached" if proof else "",
         ],
         customer=user["email"],
         status="pending",
         url=f"{base_url()}/admin.html#topups",
     )
     return jsonify(topup=wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup_id,))))
+
+
+@app.get("/api/wallet/topups/<topup_id>/proof")
+@auth.login_required
+def topup_proof(topup_id):
+    user = auth.current_user()
+    row = fetch_one("SELECT * FROM topups WHERE id = ?", (topup_id,))
+    if not row or (row["user_id"] != user["id"] and user["role"] != "admin"):
+        return err("Top-up not found.", 404)
+    return proof_response(row["proof"])
 
 
 @app.get("/api/wallet/topups/<topup_id>/qr.svg")

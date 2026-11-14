@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS orders (
     pay_amount     TEXT,
     pay_asset      TEXT,
     txid           TEXT,
+    proof          TEXT,                     -- payment screenshot (data URL)
     contact_type   TEXT,                     -- telegram | discord
     contact_handle TEXT,
     delivered_at   TEXT,
@@ -166,6 +167,7 @@ CREATE TABLE IF NOT EXISTS topups (
     pay_address  TEXT,
     pay_amount   TEXT,
     txid         TEXT,
+    proof        TEXT,
     status       TEXT NOT NULL DEFAULT 'pending'
                  CHECK (status IN ('pending', 'approved', 'rejected', 'expired')),
     reference    TEXT,
@@ -334,11 +336,15 @@ MIGRATIONS = {
         ("pay_amount", "TEXT"),
         ("pay_asset", "TEXT"),
         ("txid", "TEXT"),
+        ("proof", "TEXT"),
         ("contact_type", "TEXT"),
         ("contact_handle", "TEXT"),
         ("delivered_at", "TEXT"),
         ("emailed_at", "TEXT"),
         ("last_checked", "INTEGER"),
+    ],
+    "topups": [
+        ("proof", "TEXT"),
     ],
 }
 

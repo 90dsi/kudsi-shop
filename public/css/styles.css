@@ -1401,6 +1401,37 @@ select#sortSelect {
   color: var(--text);
   font: inherit;
 }
+.proof-upload {
+  display: grid;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+.proof-upload input[type="file"] {
+  width: 100%;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.proof-upload input[type="file"]::file-selector-button {
+  margin-right: 0.6rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+.proof-thumb {
+  display: block;
+  max-width: 240px;
+  max-height: 300px;
+  width: auto;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #fff;
+  margin-top: 0.3rem;
+}
 
 /* ---- codes ---- */
 .code-list { display: grid; gap: 0.45rem; margin: 0.9rem 0; }

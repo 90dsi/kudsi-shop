@@ -322,6 +322,7 @@ def topup_json(row: dict) -> dict:
         "address": row["pay_address"],
         "payAmount": row["pay_amount"],
         "txid": row["txid"],
+        "hasProof": bool(row.get("proof")),
         "status": row["status"],
         "reference": row["reference"],
         "customerNote": row["customer_note"],

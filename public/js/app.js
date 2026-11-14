@@ -427,6 +427,40 @@ function isQrLink(value) {
   return /^https?:\/\//i.test((value || "").trim());
 }
 
+function fileToProof(file) {
+  return new Promise((resolve, reject) => {
+    if (!file) return resolve("");
+    if (!/^image\//.test(file.type)) return reject(new Error("Pick an image file."));
+    const image = new Image();
+    const url = URL.createObjectURL(file);
+    image.onload = () => {
+      try {
+        const scale = Math.min(1, 1400 / Math.max(image.width, image.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(image.width * scale) || 1;
+        canvas.height = Math.round(image.height * scale) || 1;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+        let data = canvas.toDataURL("image/jpeg", 0.82);
+        if (data.length > 380000) data = canvas.toDataURL("image/jpeg", 0.62);
+        if (data.length > 500000) return reject(new Error("That screenshot is too large."));
+        resolve(data);
+      } catch {
+        reject(new Error("Could not read that image."));
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    image.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read that image."));
+    };
+    image.src = url;
+  });
+}
+
 function copyField(label, value) {
   return `
     <div class="copy-field">
@@ -462,12 +496,24 @@ function renderPayDetails(modal, order, pay) {
           <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
           <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
                  placeholder="Paste the TXID from your Binance receipt" />
+          <div class="proof-upload">
+            <label class="cf-label" for="binanceProof">Payment screenshot <span class="muted">(optional)</span></label>
+            <input id="binanceProof" type="file" accept="image/*" />
+            <img class="proof-thumb" id="proofPreview" alt="Payment screenshot" hidden />
+          </div>
           <button class="btn btn-primary btn-full" type="button" id="submitTxid">Submit payment proof</button>
           <p class="pay-qr-label" id="txidNote">Your order stays pending until the TXID is checked.</p>
         </div>
         <button class="btn btn-ghost btn-full" type="button" id="checkPayment">Check payment status</button>
       </div>
       <p class="form-error" id="payError" role="alert" hidden></p>`;
+    panel.querySelector("#binanceProof").addEventListener("change", (event) => {
+      const file = event.target.files && event.target.files[0];
+      if (!file) return;
+      const preview = panel.querySelector("#proofPreview");
+      preview.src = URL.createObjectURL(file);
+      preview.hidden = false;
+    });
     panel.querySelector("#submitTxid").addEventListener("click", async () => {
       const button = panel.querySelector("#submitTxid");
       const value = (panel.querySelector("#binanceTxid").value || "").trim();
@@ -478,7 +524,9 @@ function renderPayDetails(modal, order, pay) {
       button.disabled = true;
       button.textContent = "Submitting…";
       try {
-        await api.post(`/api/orders/${order.id}/txid`, { txid: value });
+        const file = panel.querySelector("#binanceProof").files[0];
+        const proof = file ? await fileToProof(file) : "";
+        await api.post(`/api/orders/${order.id}/txid`, { txid: value, proof });
         panel.querySelector("#txidNote").textContent =
           "TXID received. An admin will confirm it and release your codes.";
         button.textContent = "TXID submitted";

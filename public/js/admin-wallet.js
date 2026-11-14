@@ -74,6 +74,11 @@ function openTopupReview(id) {
         <p>${today(topup.createdAt)} · ${timeAgo(topup.createdAt)}</p>
         ${topup.customerNote ? `<p class="hint" style="margin-top:0.4rem">Customer note</p><p>${esc(topup.customerNote)}</p>` : ""}
         ${topup.txid ? `<p class="hint" style="margin-top:0.4rem">Transaction</p><p class="mono" style="font-size:0.8rem;word-break:break-all">${esc(topup.txid)}</p>` : ""}
+        ${
+          topup.hasProof
+            ? `<p class="hint" style="margin-top:0.4rem">Payment screenshot</p><a href="/api/wallet/topups/${encodeURIComponent(topup.id)}/proof" target="_blank" rel="noopener"><img class="proof-thumb" src="/api/wallet/topups/${encodeURIComponent(topup.id)}/proof" alt="Payment screenshot" /></a>`
+            : ""
+        }
       </div>
       ${
         pending
