@@ -1023,12 +1023,9 @@ def pay(order_id):
 
     if method["kind"] == "binance":
         pay_id = (method["address"] or "").strip()
-        manual = not method["auto_verify"] or not cfg["binance_enabled"]
-        if manual:
-            if not pay_id and not (method["image"] or "").strip():
-                return err(
-                    "Binance Pay isn't configured yet. Add a Binance Pay ID or QR in Admin → Payments."
-                )
+        has_manual_details = bool(pay_id or (method["image"] or "").strip())
+
+        def manual_binance():
             amount = payments.amount_for_cents(order["total_cents"])
             expires = int(time.time()) + 3600
             execute(
@@ -1048,9 +1045,22 @@ def pay(order_id):
                 instructions=method["instructions"],
                 expiresAt=expires,
             )
+
+        manual = not method["auto_verify"] or not cfg["binance_enabled"]
+        if manual:
+            if not has_manual_details:
+                return err(
+                    "Binance Pay isn't configured yet. Add a Binance Pay ID or QR in Admin → Payments."
+                )
+            return manual_binance()
         try:
             result = payments.create_binance_order(order, items)
         except payments.PaymentError as exc:
+            # The merchant API is unreachable or the keys were rejected. If a
+            # Pay ID / QR is configured, keep checkout working via the manual
+            # (admin-confirmed) flow instead of blocking the customer.
+            if has_manual_details:
+                return manual_binance()
             return err(str(exc), 502)
         execute(
             "UPDATE orders SET provider = 'binance', provider_ref = ?, checkout_url = ?, txid = NULL, expires_at = ? "
@@ -1360,19 +1370,16 @@ def create_topup():
     payload: dict = {"topup": topup, "method": "manual"}
     if method and method["kind"] == "binance":
         pay_id = (method["address"] or "").strip()
-        manual = not method["auto_verify"] or not payments.config()["binance_enabled"]
-        if manual:
-            if not pay_id and not (method["image"] or "").strip():
-                return err(
-                    "Binance Pay isn't configured yet. Add a Binance Pay ID or QR in Admin → Payments."
-                )
+        has_manual_details = bool(pay_id or (method["image"] or "").strip())
+
+        def manual_binance_topup():
             amount = payments.amount_for_cents(cents)
             execute(
                 "UPDATE topups SET reference = ?, pay_address = ?, pay_amount = ?, "
                 "asset = ?, network = ? WHERE id = ?",
                 (method["id"], pay_id or None, amount, "USDT", "Binance", topup["id"]),
             )
-            payload = {
+            return {
                 "topup": wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup["id"],))),
                 "method": "binance",
                 "manual": True,
@@ -1384,23 +1391,37 @@ def create_topup():
                 "instructions": method["instructions"],
                 "image": method["image"],
             }
+
+        manual = not method["auto_verify"] or not payments.config()["binance_enabled"]
+        if manual:
+            if not has_manual_details:
+                return err(
+                    "Binance Pay isn't configured yet. Add a Binance Pay ID or QR in Admin → Payments."
+                )
+            payload = manual_binance_topup()
         else:
             try:
                 result = payments.create_binance_order(
                     {"id": topup["id"], "total_cents": cents}, []
                 )
             except payments.PaymentError as exc:
-                return err(str(exc), 502)
-            execute(
-                "UPDATE topups SET reference = ?, pay_address = ?, pay_amount = ? WHERE id = ?",
-                (result.get("prepay_id"), result.get("checkout_url"), payments.amount_for_cents(cents), topup["id"]),
-            )
-            payload = {
-                "topup": wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup["id"],))),
-                "method": "binance",
-                "checkoutUrl": result.get("checkout_url"),
-                "amount": payments.amount_for_cents(cents),
-            }
+                # Keys rejected or the API is unreachable: use the Pay ID/QR
+                # flow when one is configured so top-ups keep working.
+                if has_manual_details:
+                    payload = manual_binance_topup()
+                else:
+                    return err(str(exc), 502)
+            else:
+                execute(
+                    "UPDATE topups SET reference = ?, pay_address = ?, pay_amount = ? WHERE id = ?",
+                    (result.get("prepay_id"), result.get("checkout_url"), payments.amount_for_cents(cents), topup["id"]),
+                )
+                payload = {
+                    "topup": wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup["id"],))),
+                    "method": "binance",
+                    "checkoutUrl": result.get("checkout_url"),
+                    "amount": payments.amount_for_cents(cents),
+                }
     elif method:
         try:
             amount = crypto.amount_for(cents, method["asset"], method["rate_usd"])
