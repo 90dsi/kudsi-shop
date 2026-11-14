@@ -1379,6 +1379,28 @@ select#sortSelect {
   flex: none;
   background: rgba(255, 255, 255, 0.06);
 }
+.pay-binance-qr {
+  display: block;
+  max-width: 240px;
+  max-height: 340px;
+  margin: 0.7rem auto 0.2rem;
+  border-radius: 14px;
+  background: #fff;
+}
+.pay-txid {
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.8rem;
+}
+.pay-txid input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
 
 /* ---- codes ---- */
 .code-list { display: grid; gap: 0.45rem; margin: 0.9rem 0; }

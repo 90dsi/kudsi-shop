@@ -129,8 +129,12 @@ Each method is one row: **label**, **type** (`Direct crypto` or `Binance Pay`),
   choosing the method. Leave the address empty to hide the method from checkout.
   The payment step also shows a QR code: Bitcoin and Litecoin are encoded as BIP21
   URIs so the wallet app prefills the address and the unique amount.
-- **Binance Pay** — no address needed; customers get a hosted Binance checkout, and
-  the payment step shows a QR code that opens that checkout in the Binance app.
+- **Binance Pay** — paste your **Binance Pay ID** (for example `1026195358`) or the
+  link from your Binance Pay QR (`https://app.binance.com/uni-qr/...`), and optionally
+  upload the QR picture. Customers scan/send, then submit the Binance **transaction ID
+  (TXID)**; an admin checks it in Orders and marks the order paid. With working
+  merchant keys you can tick "Verify with the Binance merchant API" for automatic
+  confirmation (see section 4).
 - **Hide / show** without deleting: the Hide button on the row, or uncheck "Show at
   checkout". Existing orders keep their details.
 - **Manual rate** — leave empty to use the live CoinGecko price (cached 5 minutes).
@@ -186,6 +190,22 @@ How verification works:
 mode — checkout shows "Simulate successful payment", which runs the same paid path as a
 real webhook. Set `PAYMENTS_ALLOW_SANDBOX=0` once real keys are in place.
 
+### Manual Pay ID / QR (no merchant keys)
+
+If the merchant API is unavailable (for example on PythonAnywhere free, where
+`bpay.binanceapi.com` is blocked), Binance Pay can run manually:
+
+1. **Admin → Payments → Edit** the Binance method.
+2. Put your **Binance Pay ID** (e.g. `1026195358`) or the QR link from your Binance
+   app into **Binance Pay ID or QR link**. Optionally upload the QR picture as the
+   **payment picture**.
+3. Leave **Verify with the Binance merchant API** unchecked and enable the method.
+4. At checkout the customer sees the QR/Pay ID and the amount, pays in Binance, and
+   must paste the **transaction ID** from the Binance receipt (orders and wallet
+   top-ups both require it).
+5. Check the TXID in your Binance app, then use **Orders → Manage → Mark as paid** (or
+   approve the top-up). Manual payments are never auto-marked paid.
+
 ## 5. Email (password resets only)
 
 Order codes are delivered on the site and never emailed. SMTP is used only for
@@ -210,8 +230,9 @@ generated link.
 1. Add products to the cart (pick a duration chip first when the card offers one), open checkout.
 2. Enter email/password (account is created automatically) or use the signed-in account.
 3. Choose **Telegram** or **Discord** and type the username.
-4. Pick a payment method. Binance → hosted checkout. Crypto → exact amount + address +
-   optional picture, with copy buttons.
+4. Pick a payment method. Binance → hosted checkout, or the Pay ID/QR plus a TXID
+   field for the manual flow. Crypto → exact amount + address + optional picture,
+   with copy buttons.
 5. Pay, then "I've paid — check now" (or wait for the watcher).
 6. When paid, the codes appear on the order page and in the dashboard, and the receipt
    reminds them to send the order id on Telegram/Discord so you can match the payer.

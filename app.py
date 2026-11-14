@@ -299,7 +299,13 @@ def method_available(method: dict) -> bool:
     if not method.get("enabled"):
         return False
     if method["kind"] == "binance":
-        return payments.config()["binance_enabled"]
+        # Hosted checkout needs merchant keys, but a Binance Pay ID or QR
+        # picture is enough for the manual (admin-confirmed) flow.
+        return bool(
+            payments.config()["binance_enabled"]
+            or (method.get("address") or "").strip()
+            or (method.get("image") or "").strip()
+        )
     return bool((method.get("address") or "").strip())
 
 
@@ -351,6 +357,7 @@ def order_json(order: dict, items: list[dict], include_codes: bool = False) -> d
         "payAddress": order["pay_address"],
         "payAmount": order["pay_amount"],
         "payAsset": order["pay_asset"],
+        "payId": method["address"] if method and method["kind"] == "binance" else None,
         "txid": order["txid"],
         "contact": {"type": order["contact_type"], "handle": order["contact_handle"]},
         "deliveredAt": order["delivered_at"],
@@ -954,6 +961,9 @@ def order_qr(order_id):
     order, _ = load_order(order_id)
     if not order or not can_view(order):
         return err("Order not found.", 404)
+    if order["provider"] == "binance" and not order["checkout_url"]:
+        if not (order["pay_address"] or "").startswith(("http://", "https://")):
+            return err("This Binance Pay ID has no QR link - show the ID instead.", 404)
     text = payqr.order_payload(order)
     if not text:
         return err("No payment details to encode yet.", 404)
@@ -1012,12 +1022,38 @@ def pay(order_id):
         return err(f"{method['label']} is not available right now.")
 
     if method["kind"] == "binance":
+        pay_id = (method["address"] or "").strip()
+        manual = not method["auto_verify"] or not cfg["binance_enabled"]
+        if manual:
+            if not pay_id and not (method["image"] or "").strip():
+                return err(
+                    "Binance Pay isn't configured yet. Add a Binance Pay ID or QR in Admin → Payments."
+                )
+            amount = payments.amount_for_cents(order["total_cents"])
+            expires = int(time.time()) + 3600
+            execute(
+                "UPDATE orders SET provider = 'binance', provider_ref = NULL, pay_address = ?, "
+                "pay_amount = ?, pay_asset = ?, checkout_url = NULL, txid = NULL, expires_at = ? WHERE id = ?",
+                (pay_id or None, amount, cfg["currency"], expires, order_id),
+            )
+            return jsonify(
+                provider="binance",
+                kind="binance",
+                manual=True,
+                label=method["label"],
+                currency=cfg["currency"],
+                amount=amount,
+                payId=pay_id,
+                image=method["image"],
+                instructions=method["instructions"],
+                expiresAt=expires,
+            )
         try:
             result = payments.create_binance_order(order, items)
         except payments.PaymentError as exc:
             return err(str(exc), 502)
         execute(
-            "UPDATE orders SET provider = 'binance', provider_ref = ?, checkout_url = ?, expires_at = ? "
+            "UPDATE orders SET provider = 'binance', provider_ref = ?, checkout_url = ?, txid = NULL, expires_at = ? "
             "WHERE id = ?",
             (result["prepay_id"], result["checkout_url"], result["expire_time"], order_id),
         )
@@ -1041,7 +1077,7 @@ def pay(order_id):
     expires = int(time.time()) + 3600
     execute(
         """UPDATE orders SET provider = ?, pay_address = ?, pay_amount = ?, pay_asset = ?,
-           checkout_url = NULL, expires_at = ? WHERE id = ?""",
+           checkout_url = NULL, txid = NULL, expires_at = ? WHERE id = ?""",
         (method["id"], method["address"], amount, method["asset"], expires, order_id),
     )
     return jsonify(
@@ -1072,7 +1108,7 @@ def verify_order(order_id):
     if order["status"] == "paid":
         return jsonify(status="paid", order=order_json(order, items, include_codes=show_codes))
 
-    if order["provider"] == "binance" and payments.config()["binance_enabled"]:
+    if order["provider"] == "binance" and order["checkout_url"] and payments.config()["binance_enabled"]:
         try:
             data = payments.query_binance_order(order["id"])
         except payments.PaymentError as exc:
@@ -1088,6 +1124,18 @@ def verify_order(order_id):
         order, items = load_order(order_id)
         return jsonify(status=order["status"], order=order_json(order, items, include_codes=show_codes))
 
+    if order["provider"] == "binance":
+        warning = (
+            "Transaction ID received. An admin will confirm it and release your codes."
+            if order["txid"]
+            else "Pay with the Binance app, then submit the transaction ID so an admin can confirm it."
+        )
+        return jsonify(
+            status=order["status"],
+            warning=warning,
+            order=order_json(order, items, include_codes=show_codes),
+        )
+
     if order["provider"] and order["provider"] not in {"binance", "sandbox"}:
         result = check_crypto_order(order)
         order, items = load_order(order_id)
@@ -1102,6 +1150,48 @@ def verify_order(order_id):
         return jsonify(payload)
 
     return jsonify(status=order["status"], order=order_json(order, items, include_codes=show_codes))
+
+
+@app.post("/api/orders/<order_id>/txid")
+@auth.login_required
+def submit_order_txid(order_id):
+    order, items = load_order(order_id)
+    if not order or not can_view(order):
+        return err("Order not found.", 404)
+    if order["status"] == "paid":
+        return err("This order is already paid.")
+    if order["status"] != "pending":
+        return err("This order is closed.")
+    if order["provider"] != "binance" or order["checkout_url"]:
+        return err("This order does not need a Binance transaction ID.")
+
+    txid = clean(body().get("txid"), 160)
+    if len(txid) < 6:
+        return err("Paste the full transaction ID from your Binance receipt.")
+    if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
+        return err("That doesn't look like a transaction ID.")
+
+    execute(
+        "UPDATE orders SET txid = ? WHERE id = ? AND status = 'pending'",
+        (txid, order_id),
+    )
+    user = auth.current_user()
+    notify.emit(
+        "binance_txid",
+        "Binance payment proof submitted",
+        [
+            f"Order: {order_id}",
+            f"Customer: {user['name'] or user['email']}",
+            f"Amount: {(order['pay_amount'] or '')} {(order['pay_asset'] or '')}".strip(),
+            f"TXID: {txid}",
+        ],
+        customer=user["email"],
+        status="pending",
+        url=f"{base_url()}/admin.html#orders",
+    )
+    order, items = load_order(order_id)
+    show_codes = user["role"] == "admin" or setting_bool("codes_visible")
+    return jsonify(order=order_json(order, items, include_codes=show_codes))
 
 
 @app.post("/api/dev/pay/<order_id>")
@@ -1269,22 +1359,48 @@ def create_topup():
 
     payload: dict = {"topup": topup, "method": "manual"}
     if method and method["kind"] == "binance":
-        try:
-            result = payments.create_binance_order(
-                {"id": topup["id"], "total_cents": cents}, []
+        pay_id = (method["address"] or "").strip()
+        manual = not method["auto_verify"] or not payments.config()["binance_enabled"]
+        if manual:
+            if not pay_id and not (method["image"] or "").strip():
+                return err(
+                    "Binance Pay isn't configured yet. Add a Binance Pay ID or QR in Admin → Payments."
+                )
+            amount = payments.amount_for_cents(cents)
+            execute(
+                "UPDATE topups SET reference = ?, pay_address = ?, pay_amount = ?, "
+                "asset = ?, network = ? WHERE id = ?",
+                (method["id"], pay_id or None, amount, "USDT", "Binance", topup["id"]),
             )
-        except payments.PaymentError as exc:
-            return err(str(exc), 502)
-        execute(
-            "UPDATE topups SET reference = ?, pay_address = ?, pay_amount = ? WHERE id = ?",
-            (result.get("prepay_id"), result.get("checkout_url"), payments.amount_for_cents(cents), topup["id"]),
-        )
-        payload = {
-            "topup": wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup["id"],))),
-            "method": "binance",
-            "checkoutUrl": result.get("checkout_url"),
-            "amount": payments.amount_for_cents(cents),
-        }
+            payload = {
+                "topup": wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup["id"],))),
+                "method": "binance",
+                "manual": True,
+                "checkoutUrl": None,
+                "payId": pay_id,
+                "amount": amount,
+                "asset": "USDT",
+                "network": "Binance",
+                "instructions": method["instructions"],
+                "image": method["image"],
+            }
+        else:
+            try:
+                result = payments.create_binance_order(
+                    {"id": topup["id"], "total_cents": cents}, []
+                )
+            except payments.PaymentError as exc:
+                return err(str(exc), 502)
+            execute(
+                "UPDATE topups SET reference = ?, pay_address = ?, pay_amount = ? WHERE id = ?",
+                (result.get("prepay_id"), result.get("checkout_url"), payments.amount_for_cents(cents), topup["id"]),
+            )
+            payload = {
+                "topup": wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup["id"],))),
+                "method": "binance",
+                "checkoutUrl": result.get("checkout_url"),
+                "amount": payments.amount_for_cents(cents),
+            }
     elif method:
         try:
             amount = crypto.amount_for(cents, method["asset"], method["rate_usd"])
@@ -1310,6 +1426,48 @@ def create_topup():
     return jsonify(payload), 201
 
 
+@app.post("/api/wallet/topups/<topup_id>/txid")
+@auth.login_required
+def topup_txid(topup_id):
+    user = auth.current_user()
+    row = fetch_one("SELECT * FROM topups WHERE id = ?", (topup_id,))
+    if not row or (row["user_id"] != user["id"] and user["role"] != "admin"):
+        return err("Top-up not found.", 404)
+    if row["status"] != "pending":
+        return err("This top-up is already decided.")
+    method = fetch_one("SELECT * FROM payment_methods WHERE id = ?", (row["method"],))
+    manual = bool(method) and method["kind"] == "binance" and (
+        not method["auto_verify"] or not payments.config()["binance_enabled"]
+    )
+    if not manual:
+        return err("This top-up does not need a Binance transaction ID.")
+
+    txid = clean(body().get("txid"), 160)
+    if len(txid) < 6:
+        return err("Paste the full transaction ID from your Binance receipt.")
+    if not re.fullmatch(r"[A-Za-z0-9:_-]{6,160}", txid):
+        return err("That doesn't look like a transaction ID.")
+
+    execute(
+        "UPDATE topups SET txid = ? WHERE id = ? AND status = 'pending'",
+        (txid, topup_id),
+    )
+    notify.emit(
+        "topup_txid",
+        "Binance top-up proof submitted",
+        [
+            f"Top-up: {topup_id}",
+            f"Customer: {user['name'] or user['email']}",
+            f"Amount: {wallet.fmt(row['amount_cents'])}",
+            f"TXID: {txid}",
+        ],
+        customer=user["email"],
+        status="pending",
+        url=f"{base_url()}/admin.html#topups",
+    )
+    return jsonify(topup=wallet.topup_json(fetch_one("SELECT * FROM topups WHERE id = ?", (topup_id,))))
+
+
 @app.get("/api/wallet/topups/<topup_id>/qr.svg")
 @auth.login_required
 def topup_qr(topup_id):
@@ -1317,6 +1475,8 @@ def topup_qr(topup_id):
     row = fetch_one("SELECT * FROM topups WHERE id = ?", (topup_id,))
     if not row or (row["user_id"] != user["id"] and user["role"] != "admin"):
         return err("Top-up not found.", 404)
+    if row["method"] == "binance" and not (row["pay_address"] or "").startswith(("http://", "https://")):
+        return err("This Binance Pay ID has no QR link - show the ID instead.", 404)
     text = payqr.topup_payload(row)
     if not text:
         return err("No payment details to encode yet.", 404)
@@ -1980,7 +2140,7 @@ def admin_verify_order(order_id):
         return jsonify(status="paid", order=order_json(order, items, include_codes=True))
 
     result: dict = {}
-    if order["provider"] == "binance" and payments.config()["binance_enabled"]:
+    if order["provider"] == "binance" and order["checkout_url"] and payments.config()["binance_enabled"]:
         try:
             data = payments.query_binance_order(order["id"])
             state = str(data.get("orderStatus", "")).upper()

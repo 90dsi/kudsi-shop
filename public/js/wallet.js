@@ -347,6 +347,10 @@ function bindTopup() {
   });
 }
 
+function isQrLink(value) {
+  return /^https?:\/\//i.test((value || "").trim());
+}
+
 function renderTopupResult(result) {
   const box = $("#topupResult");
   const topup = result.topup || {};
@@ -383,6 +387,37 @@ function renderTopupResult(result) {
       }
       ${result.instructions ? `<p class="hint" style="margin-top:0.6rem">${esc(result.instructions)}</p>` : ""}
       <p class="hint" style="margin-top:0.7rem">${result.autoVerify ? "We check the blockchain automatically — credit usually lands within minutes." : "After paying, send the transaction hash to support so an admin can approve it."}</p>`;
+  } else if (result.method === "binance" && result.manual) {
+    const payId = (result.payId || "").trim();
+    const amount = `${result.amount || ""} ${result.asset || "USDT"}`.trim();
+    const qr = result.image
+      ? `<img class="pay-binance-qr" src="${esc(result.image)}" alt="Binance Pay QR code" loading="lazy" />`
+      : isQrLink(payId)
+        ? `<img class="pay-qr" src="/api/wallet/topups/${encodeURIComponent(topup.id)}/qr.svg"
+             alt="Binance Pay QR code for top-up ${esc(topup.id)}" width="190" height="190" loading="lazy" />`
+        : "";
+    body += `
+      <div class="divider"></div>
+      <p class="hint">Scan with the Binance app or send to the ID below, then submit the transaction ID. An admin credits your balance after checking it.</p>
+      ${qr ? `${qr}<p class="pay-qr-label">Scan with the Binance app to pay</p>` : ""}
+      ${
+        payId && !isQrLink(payId)
+          ? `<p class="hint" style="margin-top:0.6rem">Binance Pay ID</p>
+             <div class="copy-field"><code>${esc(payId)}</code><button class="icon-btn-sm" type="button" data-copy="${esc(payId)}">Copy</button></div>`
+          : ""
+      }
+      <p class="hint" style="margin-top:0.6rem">Send exactly ${esc(amount)} and add reference ${esc(topup.id || "")} in the note.</p>
+      <div class="pay-txid">
+        <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
+        <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Paste the TXID from your Binance receipt" value="${esc(topup.txid || "")}" />
+        <button class="btn btn-primary btn-full" type="button" id="submitTxid">Submit payment proof</button>
+        <p class="pay-qr-label" id="txidNote">${
+          topup.txid
+            ? "TXID received. An admin will approve your top-up."
+            : "Required — your top-up stays pending until the TXID is checked."
+        }</p>
+      </div>`;
   } else if (result.method === "binance") {
     body += `
       <div class="divider"></div>
@@ -407,6 +442,30 @@ function renderTopupResult(result) {
 
   body += `</div>`;
   box.innerHTML = body;
+
+  const submitTxid = $("#submitTxid");
+  if (submitTxid) {
+    submitTxid.addEventListener("click", async () => {
+      const value = ($("#binanceTxid").value || "").trim();
+      const errorBox = $("#topupError");
+      if (errorBox) errorBox.hidden = true;
+      if (!value) {
+        if (errorBox) showError(errorBox, "Paste the Binance transaction ID.");
+        return;
+      }
+      submitTxid.disabled = true;
+      submitTxid.textContent = "Submitting…";
+      try {
+        await api.post(`/api/wallet/topups/${encodeURIComponent(topup.id)}/txid`, { txid: value });
+        $("#txidNote").textContent = "TXID received. An admin will approve your top-up.";
+        submitTxid.textContent = "TXID submitted";
+      } catch (error) {
+        if (errorBox) showError(errorBox, error.message);
+        submitTxid.disabled = false;
+        submitTxid.textContent = "Submit payment proof";
+      }
+    });
+  }
 }
 
 function bindWithdraw() {

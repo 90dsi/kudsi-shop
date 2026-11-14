@@ -47,12 +47,18 @@ def payload(
 
 
 def order_payload(order: dict) -> str:
+    checkout = (order.get("checkout_url") or "").strip()
+    if checkout:
+        return checkout
+    address = (order.get("pay_address") or "").strip()
+    if address.startswith(("http://", "https://")):
+        # Manual Binance Pay: the admin pasted the QR link instead of a pay ID.
+        return address
     return payload(
         asset=order.get("pay_asset") or "",
-        address=order.get("pay_address") or "",
+        address=address,
         amount=order.get("pay_amount") or "",
         reference=order.get("id") or "",
-        checkout_url=order.get("checkout_url") or "",
     )
 
 

@@ -1104,9 +1104,9 @@ function openMethodEditor(method) {
             <input id="mNetwork" value="${esc(m.network || "")}" placeholder="Bitcoin / TRON / Ethereum" />
           </div>
           <div class="field" style="grid-column:1/-1" id="addressField">
-            <label for="mAddress">Receiving address</label>
+            <label for="mAddress" id="mAddressLabel">Receiving address</label>
             <input id="mAddress" value="${esc(m.address || "")}" placeholder="Paste your wallet address" />
-            <span class="hint">Customers only see this after they choose the method. Leave blank to hide the method.</span>
+            <span class="hint" id="mAddressHint">Customers only see this after they choose the method. Leave blank to hide the method.</span>
           </div>
           <div class="field" style="grid-column:1/-1">
             <label for="mInstructions">Instructions <span class="hint">(optional)</span></label>
@@ -1136,7 +1136,7 @@ function openMethodEditor(method) {
             <label>Automatic checking</label>
             <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.88rem;color:var(--text)">
               <input type="checkbox" id="mAuto" ${m.autoVerify ? "checked" : ""} style="width:auto;height:auto" />
-              Verify payments from the blockchain
+              <span id="mAutoLabel">Verify payments from the blockchain</span>
             </label>
           </div>
           <div class="field">
@@ -1162,16 +1162,28 @@ function openMethodEditor(method) {
 
   const kind = $("#mKind");
   const addressField = $("#addressField");
-  const syncKind = () => {
+  const syncKind = (reset = false) => {
     const binance = kind.value === "binance";
-    addressField.hidden = binance;
-    $("#mAsset").value = binance ? "USDT" : $("#mAsset").value;
-    $("#mNetwork").value = binance ? "Binance" : $("#mNetwork").value;
-    $("#mAuto").checked = true;
-    $("#mAuto").disabled = binance;
+    addressField.hidden = false;
+    $("#mAddressLabel").textContent = binance ? "Binance Pay ID or QR link" : "Receiving address";
+    $("#mAddress").placeholder = binance
+      ? "e.g. 1026195358 or https://app.binance.com/uni-qr/…"
+      : "Paste your wallet address";
+    $("#mAddressHint").textContent = binance
+      ? "The customer sees this on the payment step. Use a Pay ID, or paste the link from your Binance Pay QR so we can draw the QR."
+      : "Customers only see this after they choose the method. Leave blank to hide the method.";
+    $("#mAutoLabel").textContent = binance
+      ? "Verify with the Binance merchant API (needs working keys)"
+      : "Verify payments from the blockchain";
+    if (reset) {
+      $("#mAsset").value = binance ? "USDT" : $("#mAsset").value;
+      $("#mNetwork").value = binance ? "Binance" : $("#mNetwork").value;
+      $("#mAuto").checked = !binance;
+    }
+    $("#mAuto").disabled = false;
   };
-  kind.addEventListener("change", syncKind);
-  syncKind();
+  kind.addEventListener("change", () => syncKind(true));
+  syncKind(false);
 
   const preview = $("#methodPreview");
   const updatePreview = () => {
@@ -1213,6 +1225,9 @@ function openMethodEditor(method) {
     };
     if (!payload.label) return show(errorBox, "Give the method a name.");
     if (payload.kind === "crypto" && !payload.address) return show(errorBox, "Add the receiving address.");
+    if (payload.kind === "binance" && !payload.address && !payload.image) {
+      return show(errorBox, "Add a Binance Pay ID, a QR link, or a QR picture.");
+    }
 
     try {
       if (isNew) {

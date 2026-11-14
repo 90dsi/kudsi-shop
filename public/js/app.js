@@ -423,6 +423,10 @@ function renderMethodStep(modal, order) {
   });
 }
 
+function isQrLink(value) {
+  return /^https?:\/\//i.test((value || "").trim());
+}
+
 function copyField(label, value) {
   return `
     <div class="copy-field">
@@ -436,6 +440,58 @@ function copyField(label, value) {
 
 function renderPayDetails(modal, order, pay) {
   const panel = modal.querySelector(".modal-panel");
+
+  if (pay.provider === "binance" && pay.manual) {
+    const payId = (pay.payId || "").trim();
+    const amount = `${pay.amount || ""} ${pay.currency || pay.asset || ""}`.trim();
+    const qr = pay.image
+      ? `<img class="pay-binance-qr" src="${esc(pay.image)}" alt="Binance Pay QR code" loading="lazy" />`
+      : isQrLink(payId)
+        ? `<img class="pay-qr" src="/api/orders/${encodeURIComponent(order.id)}/qr.svg"
+             alt="Binance Pay QR code for order ${esc(order.id)}" width="190" height="190" loading="lazy" />`
+        : "";
+    panel.innerHTML = `
+      <h2>Pay ${esc(amount)}</h2>
+      <p class="sub">Order <strong>${esc(order.id)}</strong> · Binance Pay</p>
+      <div class="pay-block">
+        <p class="pay-note">${esc(pay.instructions || "Scan with the Binance app or send to the Binance Pay ID below, then submit the transaction ID.")}</p>
+        ${qr ? `${qr}<p class="pay-qr-label">Scan with the Binance app to pay</p>` : ""}
+        ${payId && !isQrLink(payId) ? copyField("Binance Pay ID", payId) : ""}
+        <p class="small muted">Send exactly <strong>${esc(amount)}</strong> and add order <strong>${esc(order.id)}</strong> in the note.</p>
+        <div class="pay-txid">
+          <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
+          <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Paste the TXID from your Binance receipt" />
+          <button class="btn btn-primary btn-full" type="button" id="submitTxid">Submit payment proof</button>
+          <p class="pay-qr-label" id="txidNote">Your order stays pending until the TXID is checked.</p>
+        </div>
+        <button class="btn btn-ghost btn-full" type="button" id="checkPayment">Check payment status</button>
+      </div>
+      <p class="form-error" id="payError" role="alert" hidden></p>`;
+    panel.querySelector("#submitTxid").addEventListener("click", async () => {
+      const button = panel.querySelector("#submitTxid");
+      const value = (panel.querySelector("#binanceTxid").value || "").trim();
+      if (!value) {
+        showError(modal, "Paste the Binance transaction ID.");
+        return;
+      }
+      button.disabled = true;
+      button.textContent = "Submitting…";
+      try {
+        await api.post(`/api/orders/${order.id}/txid`, { txid: value });
+        panel.querySelector("#txidNote").textContent =
+          "TXID received. An admin will confirm it and release your codes.";
+        button.textContent = "TXID submitted";
+      } catch (error) {
+        showError(modal, error.message);
+        button.disabled = false;
+        button.textContent = "Submit payment proof";
+      }
+    });
+    panel.querySelector("#checkPayment").addEventListener("click", () => verifyPayment(order.id, modal));
+    startPolling(order.id, modal);
+    return;
+  }
 
   if (pay.provider === "binance") {
     panel.innerHTML = `

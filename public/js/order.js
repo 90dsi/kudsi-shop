@@ -94,6 +94,7 @@ function renderPayment(order) {
   }
 
   if (order.provider === "binance") {
+    if (!order.checkoutUrl) return binanceManualPanel(order);
     return `
       <div class="order-card" style="margin-bottom:1rem">
         <h2 style="font-size:1.05rem;margin-bottom:0.4rem">Waiting for Binance Pay</h2>
@@ -156,6 +157,47 @@ function renderPayment(order) {
             ? `<p class="note">We also check the blockchain automatically every minute.</p>`
             : `<p class="pay-warning">Automatic checking is off for this method — the admin will confirm it manually.</p>`
         }
+      </div>
+      <p class="form-error" id="payError" role="alert" hidden></p>
+    </div>`;
+}
+
+function isQrLink(value) {
+  return /^https?:\/\//i.test((value || "").trim());
+}
+
+function binanceManualPanel(order) {
+  const payId = (order.payId || "").trim();
+  const amount = `${order.payAmount || ""} ${order.payAsset || ""}`.trim();
+  const qr = order.payImage
+    ? `<img class="pay-binance-qr" src="${esc(order.payImage)}" alt="Binance Pay QR code" loading="lazy" />`
+    : isQrLink(payId)
+      ? `<img class="pay-qr" src="/api/orders/${encodeURIComponent(order.id)}/qr.svg"
+             alt="Binance Pay QR code for order ${esc(order.id)}" width="190" height="190" loading="lazy" />`
+      : "";
+  return `
+    <div class="order-card" style="margin-bottom:1rem">
+      <div class="pay-heading">
+        <h2 style="font-size:1.05rem">Send ${esc(amount)}</h2>
+      </div>
+      <p class="small muted">${esc(order.methodLabel || "Binance Pay")} · confirmed by an admin</p>
+      <div class="pay-block">
+        <p class="pay-note">${esc(order.payInstructions || "Scan with the Binance app or send to the Binance Pay ID below, then submit the transaction ID.")}</p>
+        ${qr ? `${qr}<p class="pay-qr-label">Scan with the Binance app to pay</p>` : ""}
+        ${payId && !isQrLink(payId) ? copyField("Binance Pay ID", payId) : ""}
+        <p class="small muted">Send exactly <strong>${esc(amount)}</strong> and add order <strong>${esc(order.id)}</strong> in the note.</p>
+        <div class="pay-txid">
+          <label class="cf-label" for="binanceTxid">Binance transaction ID (TXID)</label>
+          <input id="binanceTxid" type="text" autocomplete="off" spellcheck="false"
+                 placeholder="Paste the TXID from your Binance receipt" value="${esc(order.txid || "")}" />
+          <button class="btn btn-primary btn-full" type="button" id="submitTxid">Submit payment proof</button>
+          <p class="pay-qr-label" id="txidNote">${
+            order.txid
+              ? "TXID received. An admin will confirm it and release your codes."
+              : "Required — your order stays pending until the TXID is checked."
+          }</p>
+        </div>
+        <button class="btn btn-ghost btn-full" type="button" id="verifyBtn">Check payment status</button>
       </div>
       <p class="form-error" id="payError" role="alert" hidden></p>
     </div>`;
@@ -261,6 +303,25 @@ function bindActions(order) {
         showPayError(error.message);
         verify.disabled = false;
         verify.textContent = "I've paid — check now";
+      }
+    });
+  }
+
+  const submitTxid = $("#submitTxid");
+  if (submitTxid) {
+    submitTxid.addEventListener("click", async () => {
+      const input = $("#binanceTxid");
+      const value = (input ? input.value : "").trim();
+      if (!value) return showPayError("Paste the Binance transaction ID.");
+      submitTxid.disabled = true;
+      submitTxid.textContent = "Submitting…";
+      try {
+        const res = await api.post(`/api/orders/${order.id}/txid`, { txid: value });
+        render(res.order);
+      } catch (error) {
+        showPayError(error.message);
+        submitTxid.disabled = false;
+        submitTxid.textContent = "Submit payment proof";
       }
     });
   }
