@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Messages — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="brand" href="/">
+        <span class="brand-mark">K</span>
+        <span class="brand-name">Kudsi <span class="brand-accent">Shop</span></span>
+      </a>
+      <div class="header-actions">
+        <a class="account-link" href="/">Store</a>
+        <a class="account-link" href="/dashboard.html">Dashboard</a>
+        <a class="account-link" href="/wallet.html">Wallet</a>
+        <a class="account-link" href="/account.html">My orders</a>
+        <a class="account-link" href="/admin.html" id="adminLink" hidden>Admin</a>
+        <button class="account-link" type="button" id="signOutBtn">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="page-shell">
+    <div class="page-head">
+      <div>
+        <h1>Messages</h1>
+        <p>Private conversation with the Kudsi Shop team. Nobody else can see it.</p>
+      </div>
+    </div>
+
+    <div class="chat-layout" style="grid-template-columns:1fr">
+      <section class="chat-panel">
+        <header class="chat-head">
+          <span class="avatar avatar-letter" style="width:34px;height:34px;font-size:15px">K</span>
+          <div style="flex:1">
+            <strong>Kudsi Shop support</strong>
+            <span>Usually replies within a few hours</span>
+          </div>
+          <span class="pill pill-customer" id="threadState">live</span>
+        </header>
+
+        <div class="thread" id="thread">
+          <p class="chat-empty" id="threadEmpty">Loading messages…</p>
+        </div>
+
+        <form class="chat-form" id="chatForm">
+          <textarea id="chatInput" placeholder="Write a message… include your order ID if it's about an order" maxlength="2000"></textarea>
+          <button class="btn btn-primary" type="submit" id="sendBtn">Send</button>
+        </form>
+        <p class="form-error" id="chatError" role="alert" hidden style="margin:0 0.75rem 0.75rem"></p>
+      </section>
+    </div>
+  </main>
+
+  <script src="/js/api.js?v=8"></script>
+  <script src="/js/messages.js"></script>
+</body>
+</html>

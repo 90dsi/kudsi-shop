@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign in — Kudsi Shop</title>
+  <meta name="description" content="Sign in to Kudsi Shop to track orders, manage your balance and get your codes instantly." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/ui.css?v=8" />
+</head>
+<body class="auth-body">
+  <main class="auth-page">
+    <!-- ============================ visual ============================ -->
+    <section class="auth-visual">
+      <a class="auth-brand" href="/">
+        <span class="brand-mark">K</span>
+        <span><span data-app-name>Kudsi Shop</span></span>
+      </a>
+
+      <div>
+        <h1 class="auth-headline">Your codes.<br /><span class="gradient-text">Your balance.</span><br />One dashboard.</h1>
+        <p class="auth-sub">
+          Instant game cards, gift cards and subscriptions with a wallet that actually works.
+          Top up, shop, and withdraw — all in one place.
+        </p>
+      </div>
+
+      <ul class="trust-list">
+        <li><span class="tick">✓</span> Instant delivery on-site</li>
+        <li><span class="tick">✓</span> Crypto, Binance Pay and manual top-ups</li>
+        <li><span class="tick">✓</span> Private support chat with a real human</li>
+      </ul>
+
+      <!-- Contact Us — shown on both sign in and create account -->
+      <div class="contact-block" id="contactBlock">
+        <span class="contact-title">Contact us</span>
+
+        <a class="contact-card tg" id="telegramCard" href="https://t.me/t4m31" target="_blank" rel="noopener">
+          <span class="cico">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M21.94 4.6 19 19.2c-.22 1.06-.86 1.32-1.74.82l-4.8-3.54-2.32 2.23c-.26.26-.47.47-.96.47l.34-4.87 8.86-8c.39-.34-.08-.53-.6-.2L6.84 13.3l-4.7-1.47c-1.02-.32-1.04-1.02.21-1.51l18.36-7.07c.85-.31 1.6.2 1.23 1.35Z"/>
+            </svg>
+          </span>
+          <span class="cinfo">
+            <strong>Telegram</strong>
+            <span id="telegramHandle">@t4m31</span>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+
+        <a class="contact-card dc" id="discordCard" href="#" target="_blank" rel="noopener" hidden>
+          <span class="cico">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M20.32 4.57a19.8 19.8 0 0 0-4.93-1.52.07.07 0 0 0-.08.04c-.21.38-.45.87-.61 1.26a18.3 18.3 0 0 0-5.4 0 12.6 12.6 0 0 0-.62-1.26.08.08 0 0 0-.08-.04c-1.71.3-3.36.8-4.93 1.52a.07.07 0 0 0-.03.03C.53 9.04-.32 13.38.1 17.67a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 6.05 3.06.08.08 0 0 0 .09-.03c.47-.64.88-1.31 1.23-2.02a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.9.08.08 0 0 1 0-.13c.12-.1.25-.19.37-.29a.07.07 0 0 1 .08-.01c3.93 1.8 8.18 1.8 12.06 0a.07.07 0 0 1 .08.01c.12.1.25.2.37.3a.08.08 0 0 1 0 .12c-.6.35-1.22.65-1.88.9a.08.08 0 0 0-.04.11c.36.71.77 1.38 1.23 2.02a.08.08 0 0 0 .09.03 19.8 19.8 0 0 0 6.06-3.06.08.08 0 0 0 .03-.06c.5-4.96-.84-9.26-3.55-13.07a.06.06 0 0 0-.03-.03ZM8.02 15.04c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.17 1.1 2.15 2.42 0 1.33-.95 2.42-2.15 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.17 1.1 2.15 2.42 0 1.33-.94 2.42-2.15 2.42Z"/>
+            </svg>
+          </span>
+          <span class="cinfo">
+            <strong>Discord</strong>
+            <span id="discordHandle">Join now</span>
+          </span>
+          <span class="arrow">→</span>
+        </a>
+
+        <p class="hint" id="contactFallback" hidden>
+          Need help? Message us on <a href="https://t.me/t4m31" target="_blank" rel="noopener">Telegram</a>.
+        </p>
+      </div>
+    </section>
+
+    <!-- ============================ form ============================ -->
+    <section class="auth-panel">
+      <div>
+        <div class="auth-card">
+          <a class="auth-brand" href="/" style="margin-bottom:1.2rem">
+            <span class="brand-mark">K</span>
+            <span><span data-app-name>Kudsi Shop</span></span>
+          </a>
+
+          <h1 id="authTitle">Welcome back</h1>
+          <p class="sub" id="authSub">Sign in to see your orders, balance and codes.</p>
+
+          <div id="suspendedNote" class="auth-note" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v4m0 4h.01"/></svg>
+            <span>This account is suspended. Contact us on Telegram or Discord and we'll help.</span>
+          </div>
+
+          <form id="authForm" novalidate>
+            <div class="field" id="nameField" hidden>
+              <label for="name">Name <span class="hint">(optional)</span></label>
+              <input type="text" id="name" autocomplete="name" placeholder="Alex Doe" />
+            </div>
+            <div class="field">
+              <label for="email">Email</label>
+              <input type="email" id="email" autocomplete="email" placeholder="you@example.com" required />
+            </div>
+            <div class="field">
+              <label for="password">Password</label>
+              <input type="password" id="password" autocomplete="current-password" placeholder="At least 8 characters" required />
+            </div>
+
+            <div class="form-split" id="forgotRow">
+              <span class="hint" id="passwordHint" hidden>Use 8+ characters.</span>
+              <a href="#" id="forgotLink">Forgot password?</a>
+            </div>
+
+            <p class="form-error" id="authError" hidden></p>
+
+            <button class="btn btn-primary btn-full btn-glow" type="submit" id="submitBtn">Sign in</button>
+          </form>
+
+          <p class="auth-alt">
+            <span id="altText">New here?</span>
+            <a href="#" id="altLink">Create an account</a>
+          </p>
+
+          <div class="auth-note">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.4 8.9 8 10 4.6-1.1 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+            <span>Your password is hashed with scrypt. We never store or display it.</span>
+          </div>
+        </div>
+
+        <p class="auth-foot"><a href="/">← Back to the store</a></p>
+      </div>
+    </section>
+  </main>
+
+  <script src="/js/api.js?v=8"></script>
+  <script src="/js/auth.js?v=8"></script>
+</body>
+</html>

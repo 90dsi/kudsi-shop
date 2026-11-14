@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/ui.css?v=8" />
+</head>
+<body>
+  <div class="app">
+    <!-- ============================ sidebar ============================ -->
+    <aside class="side" id="side">
+      <a class="side-brand" href="/admin.html">
+        <span class="brand-mark">K</span>
+        <span data-app-name>Kudsi Shop</span>
+      </a>
+
+      <nav class="side-group" role="tablist" aria-label="Admin sections" style="overflow:auto;flex:1">
+        <span class="side-label">Overview</span>
+        <button class="tab side-link" role="tab" data-tab="dashboard" aria-selected="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>
+          <span>Overview</span>
+        </button>
+        <span class="side-label">Operations</span>
+        <button class="tab side-link" role="tab" data-tab="customers" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.4 3.4 0 0 1 0 6.6M18 20a6.4 6.4 0 0 0-2-4.6"/></svg>
+          <span>Customers</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="topups" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 19V5"/><path d="m5.5 11.5 6.5-6.5 6.5 6.5"/><path d="M4 21h16"/></svg>
+          <span>Top-ups</span>
+          <span class="badge-count" id="topupBadge" hidden>0</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="withdrawals" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 5v14"/><path d="m18.5 12.5-6.5 6.5-6.5-6.5"/><path d="M4 3h16"/></svg>
+          <span>Withdrawals</span>
+          <span class="badge-count" id="withdrawBadge" hidden>0</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="orders" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M6 2h9l4 4v16H6z"/><path d="M9 11h6M9 15h6M9 7h3"/></svg>
+          <span>Orders</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="messages" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/></svg>
+          <span>Messages</span>
+          <span class="badge-count" id="msgTabBadge" hidden>0</span>
+        </button>
+        <span class="side-label">Catalog</span>
+        <button class="tab side-link" role="tab" data-tab="products" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="m3 8 9-5 9 5-9 5-9-5Z"/><path d="m3 8v8l9 5 9-5V8"/><path d="M12 13v8"/></svg>
+          <span>Products</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="categories" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="8" height="8" rx="2"/><rect x="13" y="3" width="8" height="8" rx="2"/><rect x="3" y="13" width="8" height="8" rx="2"/><rect x="13" y="13" width="8" height="8" rx="2"/></svg>
+          <span>Categories</span>
+        </button>
+        <span class="side-label">Configuration</span>
+        <button class="tab side-link" role="tab" data-tab="payments" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M2.5 10h19"/><path d="M6.5 14.5h4"/></svg>
+          <span>Payments</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="settings" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 4.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6h.1A1.7 1.7 0 0 0 10 3.1V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg>
+          <span>Settings</span>
+        </button>
+        <button class="tab side-link" role="tab" data-tab="emails" aria-selected="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2.5" y="5" width="19" height="14" rx="2.5"/><path d="m3 7 9 6 9-6"/></svg>
+          <span>Email log</span>
+        </button>
+      </nav>
+
+      <div class="side-foot">
+        <div class="side-user" id="adminBadge"></div>
+        <a class="side-link" href="/" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 4h6v6"/><path d="M20 4 11 13"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>
+          <span>View store</span>
+        </a>
+        <button class="side-link" type="button" id="signOutBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
+          <span>Sign out</span>
+        </button>
+      </div>
+    </aside>
+
+    <div class="side-scrim" id="sideScrim"></div>
+
+    <!-- ============================== main ============================== -->
+    <div class="main">
+      <header class="topbar">
+        <button class="iconbtn side-toggle" type="button" id="sideToggle" aria-label="Open menu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <span class="topbar-title" id="topbarTitle">Overview</span>
+        <span class="spacer"></span>
+        <button class="iconbtn" type="button" id="refreshBtn" title="Refresh data" aria-label="Refresh">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M20 11a8 8 0 1 0-2.3 6.4"/><path d="M20 4v7h-7"/></svg>
+        </button>
+        <button class="iconbtn" type="button" id="exportBtn" title="Export customers CSV" aria-label="Export customers">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M4 21h16"/></svg>
+        </button>
+        <button class="btn btn-primary btn-sm" type="button" id="newProductBtn">+ New product</button>
+      </header>
+
+      <div class="page">
+        <div class="page-head">
+          <div>
+            <span class="eyebrow">Control room</span>
+            <h1 style="margin-top:0.6rem">Store admin</h1>
+            <p>Customers, balances, payouts, orders and catalog — one command centre.</p>
+          </div>
+        </div>
+
+        <!-- ========================== DASHBOARD ========================== -->
+        <section id="panel-dashboard">
+          <div class="metric-grid">
+            <div class="metric fade-up">
+              <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="9" cy="8" r="3.4"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/></svg></div>
+              <div class="label">Customers</div>
+              <div class="value" id="statCustomers">–</div>
+              <div class="delta">accounts registered</div>
+            </div>
+            <div class="metric fade-up">
+              <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2v20"/><path d="M17 6.5c0-1.9-2.2-3.5-5-3.5S7 4.6 7 6.5 9.2 10 12 10s5 1.6 5 3.5S14.8 17 12 17s-5-1.6-5-3.5"/></svg></div>
+              <div class="label">Customer balances</div>
+              <div class="value" id="statBalances">–</div>
+              <div class="delta">available across wallets</div>
+            </div>
+            <div class="metric fade-up">
+              <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 19V5"/><path d="m5.5 11.5 6.5-6.5 6.5 6.5"/></svg></div>
+              <div class="label">Total deposits</div>
+              <div class="value" id="statDeposits">–</div>
+              <div class="delta up">approved top-ups</div>
+            </div>
+            <div class="metric fade-up">
+              <div class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 5v14"/><path d="m18.5 12.5-6.5 6.5-6.5-6.5"/></svg></div>
+              <div class="label">Total withdrawn</div>
+              <div class="value" id="statWithdrawals">–</div>
+              <div class="delta">completed payouts</div>
+            </div>
+          </div>
+
+          <div class="metric-grid" style="margin-top:1rem">
+            <button class="metric glass-hover" data-jump="withdrawals" style="text-align:left;cursor:pointer;border:1px solid var(--border)">
+              <div class="label">Pending withdrawals</div>
+              <div class="value" id="statPendingWithdrawals">–</div>
+              <div class="delta" id="statPendingWithdrawalsAmount">review needed</div>
+            </button>
+            <button class="metric glass-hover" data-jump="topups" style="text-align:left;cursor:pointer;border:1px solid var(--border)">
+              <div class="label">Pending top-ups</div>
+              <div class="value" id="statPendingTopups">–</div>
+              <div class="delta" id="statPendingTopupsAmount">awaiting approval</div>
+            </button>
+            <button class="metric glass-hover" data-jump="orders" style="text-align:left;cursor:pointer;border:1px solid var(--border)">
+              <div class="label">Paid revenue</div>
+              <div class="value" id="statRevenue">–</div>
+              <div class="delta" id="statOrders">–</div>
+            </button>
+            <button class="metric glass-hover" data-jump="messages" style="text-align:left;cursor:pointer;border:1px solid var(--border)">
+              <div class="label">Unread messages</div>
+              <div class="value" id="statUnread">–</div>
+              <div class="delta">support inbox</div>
+            </button>
+          </div>
+
+          <div class="grid-2" style="margin-top:1.2rem;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr)">
+            <div class="glass" style="padding:1.2rem">
+              <div class="section-title" style="margin:0 0 0.6rem">
+                <h2>Financial activity</h2>
+                <span class="hint">last 14 days</span>
+              </div>
+              <div class="chart-wrap">
+                <canvas id="adminChart" height="220" aria-label="Deposits and withdrawals chart"></canvas>
+              </div>
+              <div class="chart-legend">
+                <span><i style="background:#31e1c0"></i>Deposits</span>
+                <span><i style="background:#7c5cff"></i>Withdrawals</span>
+              </div>
+            </div>
+            <div class="glass" style="padding:1.2rem">
+              <div class="section-title" style="margin:0 0 0.6rem">
+                <h2>Needs review</h2>
+                <a href="#" data-jump="withdrawals">View all</a>
+              </div>
+              <div id="reviewList" class="stack" style="gap:0.45rem">
+                <div class="skeleton skeleton-row"></div>
+                <div class="skeleton skeleton-row"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="glass" style="padding:1.2rem;margin-top:1.2rem">
+            <div class="section-title" style="margin:0 0 0.4rem">
+              <h2>Recent transactions</h2>
+              <span class="hint">immutable ledger</span>
+            </div>
+            <div id="recentTx" class="stack" style="gap:0.2rem">
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+              <div class="skeleton skeleton-row"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ========================== CUSTOMERS ========================== -->
+        <section id="panel-customers" hidden>
+          <div class="toolbar">
+            <label class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <input type="search" id="customerSearch" placeholder="Search email, name or ID…" aria-label="Search customers" />
+            </label>
+            <select id="customerProduct" aria-label="Filter by product"><option value="">All products</option></select>
+            <select id="customerRole" aria-label="Filter by role">
+              <option value="">All roles</option>
+              <option value="customer">Customers</option>
+              <option value="admin">Admins</option>
+            </select>
+            <span class="spacer"></span>
+            <span class="small muted" id="customerCount"></span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th class="hide-sm">ID</th>
+                  <th class="num">Balance</th>
+                  <th class="num hide-md">Deposited</th>
+                  <th class="num hide-md">Withdrawn</th>
+                  <th class="num">Orders</th>
+                  <th>Status</th>
+                  <th class="hide-sm">Joined</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="customersBody">
+                <tr><td colspan="9" class="empty-row"><span class="spinner"></span> Loading customers…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============================ TOP-UPS ============================ -->
+        <section id="panel-topups" hidden>
+          <div class="toolbar">
+            <label class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <input type="search" id="topupSearch" placeholder="Search reference, email or ID…" aria-label="Search top-ups" />
+            </label>
+            <select id="topupStatus" aria-label="Filter top-ups">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="expired">Expired</option>
+            </select>
+            <span class="spacer"></span>
+            <span class="small muted" id="topupCount"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Customer</th>
+                  <th class="num">Amount</th>
+                  <th class="hide-sm">Method</th>
+                  <th>Requested</th>
+                  <th>Status</th>
+                  <th class="hide-md">Note</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="topupsBody">
+                <tr><td colspan="8" class="empty-row"><span class="spinner"></span> Loading top-ups…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ========================== WITHDRAWALS ========================== -->
+        <section id="panel-withdrawals" hidden>
+          <form class="order-card" id="withdrawMinForm" style="display:flex;gap:0.9rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:1rem">
+            <div class="field" style="margin:0;min-width:190px">
+              <label for="wdMinWithdraw">Minimum withdrawal (<span id="wdMinSymbol">$</span>)</label>
+              <input id="wdMinWithdraw" type="number" min="1" step="0.01" placeholder="2.00" />
+            </div>
+            <button class="btn btn-primary" type="submit">Save minimum</button>
+            <span class="small muted" id="wdMinSaved"></span>
+            <p class="hint" style="flex-basis:100%;margin:0">Customers can't request less than this. Also editable in Settings → Financial.</p>
+          </form>
+          <div class="toolbar">
+            <label class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <input type="search" id="withdrawSearch" placeholder="Search username, email, ID or reference…" aria-label="Search withdrawals" />
+            </label>
+            <span class="spacer"></span>
+            <span class="small muted" id="withdrawCount"></span>
+          </div>
+          <div class="pill-tabs" id="withdrawTabs" role="tablist" style="margin-bottom:1rem">
+            <button class="pill-tab" role="tab" data-wstatus="" aria-selected="true">All</button>
+            <button class="pill-tab" role="tab" data-wstatus="pending" aria-selected="false">Pending <span id="wCountPending"></span></button>
+            <button class="pill-tab" role="tab" data-wstatus="approved" aria-selected="false">Approved <span id="wCountApproved"></span></button>
+            <button class="pill-tab" role="tab" data-wstatus="processing" aria-selected="false">Processing <span id="wCountProcessing"></span></button>
+            <button class="pill-tab" role="tab" data-wstatus="completed" aria-selected="false">Completed <span id="wCountCompleted"></span></button>
+            <button class="pill-tab" role="tab" data-wstatus="rejected" aria-selected="false">Rejected <span id="wCountRejected"></span></button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Reference</th>
+                  <th>Customer</th>
+                  <th class="num">Amount</th>
+                  <th class="hide-sm">Method</th>
+                  <th class="hide-md">Details</th>
+                  <th>Requested</th>
+                  <th>Status</th>
+                  <th class="num hide-md">Balance</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="withdrawalsBody">
+                <tr><td colspan="9" class="empty-row"><span class="spinner"></span> Loading withdrawals…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ============================ ORDERS ============================ -->
+        <section id="panel-orders" hidden>
+          <div class="toolbar">
+            <label class="search">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M16 16l4.5 4.5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>
+              <input type="search" id="orderSearch" placeholder="Search order id or email…" aria-label="Search orders" />
+            </label>
+            <select id="orderStatus" aria-label="Filter by status">
+              <option value="">All statuses</option>
+              <option value="paid">Paid</option>
+              <option value="pending">Pending</option>
+              <option value="expired">Expired</option>
+              <option value="cancelled">Cancelled</option>
+            </select>
+            <span class="spacer"></span>
+            <span class="small muted" id="orderCount"></span>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Customer</th>
+                  <th>Items</th>
+                  <th class="num">Total</th>
+                  <th>Status</th>
+                  <th>Provider</th>
+                  <th>Placed</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="ordersBody">
+                <tr><td colspan="8" class="empty-row"><span class="spinner"></span> Loading orders…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- =========================== PRODUCTS =========================== -->
+        <section id="panel-products" hidden>
+          <div class="toolbar">
+            <span class="small muted">Prices are in USD. Upload a picture or keep the emoji.</span>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>Category</th>
+                  <th class="num">Price</th>
+                  <th>Visible</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="productsBody">
+                <tr><td colspan="5" class="empty-row"><span class="spinner"></span> Loading products…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- ========================== CATEGORIES ========================== -->
+        <section id="panel-categories" hidden>
+          <div class="toolbar">
+            <span class="small muted">
+              Categories are the storefront filters. Every product belongs to one category.
+            </span>
+            <span class="spacer"></span>
+            <button class="btn btn-primary" type="button" id="newCategoryBtn">+ New category</button>
+          </div>
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th class="num">Products</th>
+                  <th class="num">Sort</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="categoriesBody">
+                <tr><td colspan="4" class="empty-row"><span class="spinner"></span> Loading categories…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- =========================== MESSAGES =========================== -->
+        <section id="panel-messages" hidden>
+          <div class="chat-layout">
+            <div class="conv-list" id="convList">
+              <p class="chat-empty">Loading conversations…</p>
+            </div>
+            <section class="chat-panel">
+              <div class="chat-empty" id="adminChatEmpty">
+                Pick a customer to read and reply.<br />
+                Customers start the conversation from their Messages page.
+              </div>
+              <div id="adminChatBody" hidden style="display:flex;flex-direction:column;flex:1">
+                <header class="chat-head" id="adminChatHead"></header>
+                <div class="thread" id="adminThread"></div>
+                <form class="chat-form" id="adminChatForm">
+                  <textarea id="adminChatInput" placeholder="Reply to this customer…" maxlength="2000"></textarea>
+                  <button class="btn btn-primary" type="submit" id="adminSendBtn">Send</button>
+                </form>
+                <p class="form-error" id="adminChatError" role="alert" hidden style="margin:0 0.75rem 0.75rem"></p>
+              </div>
+            </section>
+          </div>
+        </section>
+
+        <!-- =========================== PAYMENTS =========================== -->
+        <section id="panel-payments" hidden>
+          <div class="order-card" style="margin-bottom:1rem">
+            <h2 style="font-size:1.05rem;margin-bottom:0.35rem">Binance Pay</h2>
+            <p class="small muted" id="binanceStatus" style="margin-bottom:0.9rem">Loading…</p>
+            <form id="binanceForm">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="binanceKey">API key</label>
+                  <input id="binanceKey" autocomplete="off" placeholder="Leave blank to keep the saved key" />
+                </div>
+                <div class="field">
+                  <label for="binanceSecret">Secret key</label>
+                  <input id="binanceSecret" type="password" autocomplete="new-password" placeholder="Leave blank to keep the saved secret" />
+                </div>
+                <div class="field">
+                  <label for="binanceCert">Certificate SN <span class="hint">(optional)</span></label>
+                  <input id="binanceCert" autocomplete="off" placeholder="Defaults to the API key" />
+                </div>
+                <div class="field">
+                  <label>Mode</label>
+                  <p class="small muted" id="binanceMode">–</p>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+                <button class="btn btn-primary" type="submit">Save Binance keys</button>
+                <button class="btn btn-ghost" type="button" id="clearBinance">Remove keys</button>
+                <span class="small muted" id="binanceSaved"></span>
+              </div>
+            </form>
+          </div>
+
+          <div class="order-card" style="margin-bottom:1rem">
+            <h2 style="font-size:1.05rem;margin-bottom:0.35rem">Store &amp; delivery</h2>
+            <p class="small muted" style="margin-bottom:0.9rem">Codes are generated on payment and shown on the customer's order page. Nothing is emailed.</p>
+            <form id="storeForm">
+              <div class="form-grid">
+                <div class="field">
+                  <label for="supportContact">Support Telegram / Discord</label>
+                  <input id="supportContact" placeholder="@yourname" />
+                </div>
+                <div class="field">
+                  <label>Codes on the site</label>
+                  <label style="display:flex;align-items:center;gap:0.5rem;font-size:0.88rem;color:var(--text)">
+                    <input type="checkbox" id="codesVisible" style="width:auto;height:auto" />
+                    Show codes on the customer's order page
+                  </label>
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label for="deliveryNote">Note shown on the order page</label>
+                  <textarea id="deliveryNote" placeholder="Keep your code safe — you can find it here any time."></textarea>
+                </div>
+              </div>
+              <div style="display:flex;gap:0.5rem;align-items:center">
+                <button class="btn btn-primary" type="submit">Save settings</button>
+                <span class="small muted" id="storeSaved"></span>
+              </div>
+            </form>
+          </div>
+
+          <div class="toolbar">
+            <h2 style="font-size:1.05rem;margin:0">Payment methods</h2>
+            <span class="spacer"></span>
+            <span class="small muted" id="methodCount"></span>
+            <button class="btn btn-primary" type="button" id="newMethodBtn">+ Add method</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Asset / network</th>
+                  <th>Address</th>
+                  <th>Auto-check</th>
+                  <th>Status</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="methodsBody">
+                <tr><td colspan="6" class="empty-row"><span class="spinner"></span> Loading methods…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <!-- =========================== SETTINGS =========================== -->
+        <section id="panel-settings" hidden>
+          <div class="grid-2">
+            <!-- financial -->
+            <form class="glass settings-card" id="financialForm">
+              <div class="settings-head">
+                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M12 2v20"/><path d="M17 6.5c0-1.9-2.2-3.5-5-3.5S7 4.6 7 6.5 9.2 10 12 10s5 1.6 5 3.5S14.8 17 12 17s-5-1.6-5-3.5"/></svg></span>
+                <div><h2>Financial</h2><p class="hint">Applies to every customer immediately.</p></div>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="setMinWithdraw">Minimum withdrawal</label>
+                  <input id="setMinWithdraw" type="number" min="1" step="0.01" placeholder="2.00" />
+                  <span class="hint">Default $2.00. Enforced on the server for every request.</span>
+                </div>
+                <div class="field">
+                  <label for="setMinTopup">Minimum top-up</label>
+                  <input id="setMinTopup" type="number" min="1" step="0.01" placeholder="5.00" />
+                </div>
+                <div class="field">
+                  <label for="setCurrency">Currency code</label>
+                  <input id="setCurrency" maxlength="3" placeholder="USD" />
+                </div>
+                <div class="field">
+                  <label for="setSymbol">Currency symbol</label>
+                  <input id="setSymbol" maxlength="4" placeholder="$" />
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label class="check"><input type="checkbox" id="setManualApproval" /> Require admin approval for top-ups</label>
+                  <span class="hint">When off, Binance Pay top-ups still verify automatically; manual transfers always need review.</span>
+                </div>
+              </div>
+              <div class="row">
+                <button class="btn btn-primary" type="submit">Save financial settings</button>
+                <span class="small muted" id="financialSaved"></span>
+              </div>
+            </form>
+
+            <!-- contact -->
+            <form class="glass settings-card" id="contactForm">
+              <div class="settings-head">
+                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12Z"/></svg></span>
+                <div><h2>Contact</h2><p class="hint">Shown on the sign-in and registration pages.</p></div>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="setTelegramUsername">Telegram username</label>
+                  <input id="setTelegramUsername" placeholder="@t4m31" />
+                </div>
+                <div class="field">
+                  <label for="setTelegramLink">Telegram link</label>
+                  <input id="setTelegramLink" placeholder="https://t.me/t4m31" />
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label for="setDiscordLink">Discord link</label>
+                  <input id="setDiscordLink" placeholder="https://discord.gg/your-invite" />
+                  <span class="hint">Leave blank to hide the Discord contact card.</span>
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label for="setSupportContact">Support handle inside the store</label>
+                  <input id="setSupportContact" placeholder="@yourname" />
+                </div>
+              </div>
+              <div class="row">
+                <button class="btn btn-primary" type="submit">Save contact settings</button>
+                <span class="small muted" id="contactSaved"></span>
+              </div>
+            </form>
+          </div>
+
+          <!-- notifications -->
+          <form class="glass settings-card" id="notifyForm" style="margin-top:1rem">
+            <div class="settings-head">
+              <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+              <div><h2>Notifications</h2><p class="hint">Secrets stay server-side and are never returned to the browser.</p></div>
+            </div>
+            <div class="form-grid">
+              <div class="field">
+                <label for="setBotToken">Telegram bot token</label>
+                <input id="setBotToken" type="password" autocomplete="new-password" placeholder="123456:ABC…" />
+                <span class="hint" id="botTokenState">Not configured</span>
+              </div>
+              <div class="field">
+                <label for="setChatId">Admin Telegram chat ID</label>
+                <input id="setChatId" placeholder="123456789" />
+              </div>
+              <div class="field" style="grid-column:1/-1">
+                <label for="setWebhook">Discord webhook URL</label>
+                <input id="setWebhook" type="password" autocomplete="new-password" placeholder="https://discord.com/api/webhooks/…" />
+                <span class="hint" id="webhookState">Not configured</span>
+              </div>
+            </div>
+
+            <div class="notify-grid" id="notifyEvents">
+              <span class="skeleton skeleton-row"></span>
+            </div>
+
+            <div class="row" style="margin-top:1rem">
+              <button class="btn btn-primary" type="submit">Save notification settings</button>
+              <button class="btn btn-ghost" type="button" data-test-notify="telegram">Test Telegram</button>
+              <button class="btn btn-ghost" type="button" data-test-notify="discord">Test Discord</button>
+              <span class="small muted" id="notifySaved"></span>
+            </div>
+            <p class="hint" id="notifyTestResult" style="margin-top:0.6rem"></p>
+          </form>
+
+          <div class="grid-2" style="margin-top:1rem">
+            <!-- general -->
+            <form class="glass settings-card" id="generalForm">
+              <div class="settings-head">
+                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/></svg></span>
+                <div><h2>General</h2><p class="hint">Branding and availability.</p></div>
+              </div>
+              <div class="form-grid">
+                <div class="field">
+                  <label for="setAppName">Application name</label>
+                  <input id="setAppName" maxlength="60" />
+                </div>
+                <div class="field">
+                  <label for="setLogo">Logo letter</label>
+                  <input id="setLogo" maxlength="2" />
+                </div>
+                <div class="field">
+                  <label for="setAccent">Primary theme colour</label>
+                  <input id="setAccent" type="color" style="height:44px;padding:0.25rem" />
+                </div>
+                <div class="field">
+                  <label for="setResetHours">Reset link lifetime (hours)</label>
+                  <input id="setResetHours" type="number" min="1" max="720" step="1" />
+                </div>
+                <div class="field" style="grid-column:1/-1">
+                  <label class="check"><input type="checkbox" id="setMaintenance" /> Maintenance mode (admins can still browse)</label>
+                </div>
+              </div>
+              <div class="row">
+                <button class="btn btn-primary" type="submit">Save general settings</button>
+                <span class="small muted" id="generalSaved"></span>
+              </div>
+            </form>
+
+            <!-- withdrawal methods -->
+            <div class="glass settings-card">
+              <div class="settings-head">
+                <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><rect x="2.5" y="5.5" width="19" height="13" rx="3"/><path d="M2.5 10h19"/></svg></span>
+                <div><h2>Withdrawal methods</h2><p class="hint">Customers pick from these.</p></div>
+              </div>
+              <div id="withdrawMethodsBody" class="stack" style="gap:0.45rem">
+                <div class="skeleton skeleton-row"></div>
+              </div>
+              <form id="withdrawMethodForm" style="margin-top:0.9rem">
+                <div class="form-grid">
+                  <div class="field">
+                    <label for="wmLabel">Method name</label>
+                    <input id="wmLabel" placeholder="PayPal" maxlength="60" />
+                  </div>
+                  <div class="field">
+                    <label for="wmDetailsLabel">Details label</label>
+                    <input id="wmDetailsLabel" placeholder="PayPal email" maxlength="80" />
+                  </div>
+                </div>
+                <div class="row">
+                  <button class="btn btn-ghost btn-sm" type="submit">+ Add method</button>
+                  <span class="small muted" id="wmSaved"></span>
+                </div>
+              </form>
+            </div>
+          </div>
+
+          <div class="glass settings-card" style="margin-top:1rem">
+            <div class="settings-head">
+              <span class="metric-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"><path d="M4 4h16v16H4z"/><path d="M8 9h8M8 13h5"/></svg></span>
+              <div><h2>Notification log</h2><p class="hint">Last 25 delivery attempts.</p></div>
+            </div>
+            <div id="notifyLog" class="stack" style="gap:0.2rem"></div>
+          </div>
+        </section>
+
+        <!-- ============================ EMAIL LOG ============================ -->
+        <section id="panel-emails" hidden>
+          <div class="order-card" style="margin-bottom:1rem">
+            <h2 style="font-size:1.05rem;margin-bottom:0.35rem">Password reset emails</h2>
+            <p class="small muted">Order codes are delivered on the site. This log only tracks password reset links.</p>
+          </div>
+          <div class="toolbar">
+            <span class="small muted" id="smtpState">Loading…</span>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" type="button" id="refreshOutbox">Refresh</button>
+          </div>
+          <div class="order-card" style="padding:0" id="outboxList">
+            <p class="empty-row">Loading emails…</p>
+          </div>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <!-- customer profile modal -->
+  <div class="modal" id="customerModal" hidden>
+    <div class="modal-panel modal-lg" role="dialog" aria-modal="true" aria-labelledby="cmTitle">
+      <header class="modal-head">
+        <div class="person" id="cmHead">
+          <span class="avatar avatar-letter">?</span>
+          <div class="who"><strong id="cmTitle">Customer</strong><span id="cmSub"></span></div>
+        </div>
+        <button class="icon-btn-sm" type="button" data-close-modal aria-label="Close">✕</button>
+      </header>
+      <div class="modal-body">
+        <div class="profile-tabs" id="cmTabs" role="tablist">
+          <button class="profile-tab" role="tab" data-cm-tab="overview" aria-selected="true">Overview</button>
+          <button class="profile-tab" role="tab" data-cm-tab="topups" aria-selected="false">Top-ups</button>
+          <button class="profile-tab" role="tab" data-cm-tab="withdrawals" aria-selected="false">Withdrawals</button>
+          <button class="profile-tab" role="tab" data-cm-tab="transactions" aria-selected="false">Transactions</button>
+          <button class="profile-tab" role="tab" data-cm-tab="account" aria-selected="false">Account</button>
+        </div>
+        <div id="cmBody"><div class="skeleton skeleton-row"></div><div class="skeleton skeleton-row"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- generic dialog -->
+  <div class="modal" id="dialogModal" hidden>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="dialogTitle">
+      <header class="modal-head">
+        <h2 id="dialogTitle">Details</h2>
+        <button class="icon-btn-sm" type="button" data-close-modal aria-label="Close">✕</button>
+      </header>
+      <div class="modal-body" id="dialogBody"></div>
+    </div>
+  </div>
+
+  <script src="/js/api.js?v=8"></script>
+  <script src="/js/chart.js"></script>
+  <script src="/js/admin.js?v=8"></script>
+  <script src="/js/admin-wallet.js?v=8"></script>
+</body>
+</html>
