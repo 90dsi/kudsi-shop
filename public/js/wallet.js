@@ -364,7 +364,10 @@ function renderTopupResult(result) {
     body += `
       <div class="divider"></div>
       <p class="hint">Send exactly</p>
-      <p class="mono" style="font-size:1rem">${esc(result.amount || "")} ${esc(result.asset || "")}</p>
+      <p class="mono pay-amount-row" style="font-size:1rem">
+        <span>${esc(result.amount || "")} ${esc(result.asset || "")}</span>
+        ${result.image ? `<img class="pay-coin" src="${esc(result.image)}" alt="" loading="lazy" />` : ""}
+      </p>
       <p class="hint" style="margin-top:0.5rem">Network</p>
       <p>${esc(result.network || "")}</p>
       <p class="hint" style="margin-top:0.5rem">Address</p>
@@ -379,7 +382,6 @@ function renderTopupResult(result) {
           : ""
       }
       ${result.instructions ? `<p class="hint" style="margin-top:0.6rem">${esc(result.instructions)}</p>` : ""}
-      ${result.image ? `<img src="${esc(result.image)}" alt="Payment QR" style="max-width:180px;border-radius:12px;margin-top:0.7rem" />` : ""}
       <p class="hint" style="margin-top:0.7rem">${result.autoVerify ? "We check the blockchain automatically — credit usually lands within minutes." : "After paying, send the transaction hash to support so an admin can approve it."}</p>`;
   } else if (result.method === "binance") {
     body += `

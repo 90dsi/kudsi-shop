@@ -127,7 +127,10 @@ function renderPayment(order) {
 
   return `
     <div class="order-card" style="margin-bottom:1rem">
-      <h2 style="font-size:1.05rem;margin-bottom:0.4rem">Send ${esc(order.payAmount || "")} ${esc(order.payAsset || "")}</h2>
+      <div class="pay-heading">
+        <h2 style="font-size:1.05rem">Send ${esc(order.payAmount || "")} ${esc(order.payAsset || "")}</h2>
+        ${order.payImage ? `<img class="pay-coin" src="${esc(order.payImage)}" alt="" loading="lazy" />` : ""}
+      </div>
       <p class="small muted">${esc(order.methodLabel || "")}${order.payNetwork ? ` · ${esc(order.payNetwork)} network` : ""}</p>
       <div class="pay-block">
         ${
@@ -146,7 +149,6 @@ function renderPayment(order) {
                }</p>`
             : ""
         }
-        ${order.payImage ? `<img class="pay-image" src="${esc(order.payImage)}" alt="Payment details" />` : ""}
         <p class="small muted">The unique amount is how your payment is matched. Send it exactly.</p>
         <button class="btn btn-primary btn-full" type="button" id="verifyBtn">I've paid — check now</button>
         ${

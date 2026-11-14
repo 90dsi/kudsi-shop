@@ -477,7 +477,10 @@ function renderPayDetails(modal, order, pay) {
   }
 
   panel.innerHTML = `
-    <h2>Pay ${esc(pay.amount)} ${esc(pay.asset)}</h2>
+    <div class="pay-heading">
+      <h2>Pay ${esc(pay.amount)} ${esc(pay.asset)}</h2>
+      ${pay.image ? `<img class="pay-coin" src="${esc(pay.image)}" alt="" loading="lazy" />` : ""}
+    </div>
     <p class="sub">Order <strong>${esc(order.id)}</strong> · ${esc(pay.label)}</p>
     <div class="pay-block">
       ${
@@ -496,7 +499,6 @@ function renderPayDetails(modal, order, pay) {
              }</p>`
           : ""
       }
-      ${pay.image ? `<img class="pay-image" src="${esc(pay.image)}" alt="Payment details" />` : ""}
       <p class="small muted">Send <strong>exactly</strong> ${esc(pay.amount)} ${esc(pay.asset)} — the unique amount is how your payment is matched.</p>
       <button class="btn btn-ghost btn-full" type="button" id="checkPayment">I've paid — check now</button>
       ${pay.autoVerify ? `<p class="note">We also check the blockchain automatically every minute.</p>` : `<p class="pay-warning">Automatic checking is off for this method — the admin will confirm manually.</p>`}
