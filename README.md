@@ -19,6 +19,9 @@ A complete shop for game cards, gift cards and subscriptions:
 - **Binance Pay** — hosted crypto checkout with automatic verification
 - **Direct crypto** — BTC, LTC, USDT-TRC20 verified automatically with no API key;
   ETH and USDT-ERC20 with a free Etherscan key
+- **Scan-to-pay QR** — each payment step renders a QR code: BTC/LTC use BIP21 so the
+  wallet app fills in the address and exact amount, other chains show the plain address,
+  and Binance orders encode the checkout link that opens the Binance app
 - **Payment methods are editable** — rename, change/hide the address, set a manual rate,
   attach a picture shown while the customer pays
 - **Sandbox mode** — test the whole flow before you have any credentials
@@ -124,7 +127,10 @@ Each method is one row: **label**, **type** (`Direct crypto` or `Binance Pay`),
 
 - **Direct crypto** — paste your wallet address. The customer only sees it after
   choosing the method. Leave the address empty to hide the method from checkout.
-- **Binance Pay** — no address needed; customers get a hosted Binance checkout.
+  The payment step also shows a QR code: Bitcoin and Litecoin are encoded as BIP21
+  URIs so the wallet app prefills the address and the unique amount.
+- **Binance Pay** — no address needed; customers get a hosted Binance checkout, and
+  the payment step shows a QR code that opens that checkout in the Binance app.
 - **Hide / show** without deleting: the Hide button on the row, or uncheck "Show at
   checkout". Existing orders keep their details.
 - **Manual rate** — leave empty to use the live CoinGecko price (cached 5 minutes).
