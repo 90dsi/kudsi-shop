@@ -391,6 +391,75 @@ function renderProfileHead() {
     </div>`;
 }
 
+function identityBadges(c) {
+  const out = [];
+  if (c.hasPassword) out.push(`<span class="social-badge off">Password</span>`);
+  if (c.googleConnected) {
+    out.push(`<span class="social-badge ok" title="${esc(c.google_email || "Google connected")}">Google</span>`);
+  }
+  if (c.discordConnected) {
+    out.push(
+      `<span class="social-badge ${c.discordVerified ? "ok" : "warn"}">Discord ${
+        c.discordVerified ? "verified" : "unverified"
+      }</span>`
+    );
+  }
+  if (!out.length) out.push(`<span class="social-badge bad">No sign-in method</span>`);
+  return out.join(" ");
+}
+
+function identityRows(c) {
+  const discordUser = c.discordConnected
+    ? c.discord_username
+      ? `@${c.discord_username}`
+      : `ID ${c.discord_id}`
+    : "Not connected";
+  const verification = c.discordVerified
+    ? `Verified${c.discord_verified_at ? ` · ${today(c.discord_verified_at)}` : ""}`
+    : c.discordConnected
+      ? "Not verified"
+      : "—";
+  const lines = [
+    ["Google", c.googleConnected ? c.google_email || "Connected" : "Not connected"],
+    ["Discord", discordUser],
+    ["Discord verification", verification],
+    ["Password", c.hasPassword ? "Set" : "Not set"],
+    ["Joined", today(c.created_at)],
+  ];
+  return lines
+    .map(
+      ([label, value]) =>
+        `<div class="identity-row"><span>${esc(label)}</span><strong>${esc(String(value))}</strong></div>`
+    )
+    .join("");
+}
+
+function discordAdminPanel(c) {
+  if (!c.discordConnected) return "";
+  const check = c.discord_check_at
+    ? `<p class="hint" style="margin-top:0.5rem">Last check: ${esc(
+        c.discord_check_status || "unknown"
+      )} · ${today(c.discord_check_at)}${
+        c.discord_check_detail ? ` · ${esc(c.discord_check_detail)}` : ""
+      }</p>`
+    : "";
+  return `
+    <div class="glass" style="padding:1rem;margin-bottom:0.9rem">
+      <div class="row" style="display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+        <h3 style="font-size:0.92rem;margin:0">Discord verification</h3>
+        <span class="social-badge ${c.discordVerified ? "ok" : "off"}">${
+          c.discordVerified ? "Verified" : "Not verified"
+        }</span>
+        <span class="spacer" style="flex:1"></span>
+        <button class="btn btn-ghost btn-sm" type="button" data-admin-recheck-discord="${c.id}">Recheck now</button>
+        <button class="btn btn-danger btn-sm" type="button" data-admin-revoke-discord="${c.id}"
+          ${c.discordVerified ? "" : "disabled"}>Revoke verification</button>
+      </div>
+      <p class="hint" style="margin-top:0.45rem">The bot checks the real Discord server membership before changing the role. Revoking asks Discord to remove the configured role, then clears the status here.</p>
+      ${check}
+    </div>`;
+}
+
 function profileTabs() {
   document.querySelectorAll("[data-cm-tab]").forEach((btn) => {
     btn.setAttribute("aria-selected", String(btn.dataset.cmTab === state.profileTab));
@@ -425,6 +494,13 @@ function renderProfileTab() {
           <h3 style="font-size:0.9rem;margin-bottom:0.4rem">Recent transactions</h3>
           ${txList(c.recentTransactions || [])}
         </div>
+      </div>
+      <div class="glass" style="padding:0.9rem;margin-top:0.9rem">
+        <div class="row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.3rem">
+          <h3 style="font-size:0.9rem;margin:0">Sign-in &amp; identity</h3>
+          ${identityBadges(c)}
+        </div>
+        <div class="identity-list">${identityRows(c)}</div>
       </div>`;
     return;
   }
@@ -469,6 +545,16 @@ function renderProfileTab() {
 
   if (state.profileTab === "account") {
     box.innerHTML = `
+      <div class="glass" style="padding:1rem;margin-bottom:0.9rem">
+        <div class="row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-bottom:0.3rem">
+          <h3 style="font-size:0.92rem;margin:0">Sign-in &amp; identity</h3>
+          ${identityBadges(c)}
+        </div>
+        <div class="identity-list">${identityRows(c)}</div>
+      </div>
+
+      ${discordAdminPanel(c)}
+
       <div class="grid-2">
         <form class="glass" style="padding:1rem" id="cmPasswordForm">
           <h3 style="font-size:0.92rem;margin-bottom:0.2rem">Change password</h3>
@@ -885,6 +971,55 @@ document.addEventListener("click", async (event) => {
     } catch (error) {
       toast("Could not update account", "error", error.message);
       toggleStatus.disabled = false;
+    }
+    return;
+  }
+
+  const recheckDiscord = event.target.closest("[data-admin-recheck-discord]");
+  if (recheckDiscord) {
+    const id = Number(recheckDiscord.dataset.adminRecheckDiscord);
+    recheckDiscord.disabled = true;
+    try {
+      const data = await api.post(`/api/admin/customers/${id}/discord/recheck`, {});
+      if (data.customer && state.profile && state.profile.id === id) {
+        state.profile = { ...state.profile, ...data.customer };
+        renderProfileHead();
+        renderProfileTab();
+      }
+      toast(
+        data.hasRole ? "Discord verified" : "Discord not verified",
+        data.hasRole ? "success" : "info",
+        data.hasRole
+          ? "The role is present on the server."
+          : data.member
+            ? "The customer is on the server but does not have the role."
+            : "The customer is not a member of the server."
+      );
+      await loadCustomers();
+    } catch (error) {
+      toast("Could not check Discord", "error", error.message);
+      recheckDiscord.disabled = false;
+    }
+    return;
+  }
+
+  const revokeDiscord = event.target.closest("[data-admin-revoke-discord]");
+  if (revokeDiscord) {
+    const id = Number(revokeDiscord.dataset.adminRevokeDiscord);
+    if (!confirm("Remove this customer's Discord verification and ask the bot to delete the role?")) return;
+    revokeDiscord.disabled = true;
+    try {
+      const data = await api.post(`/api/admin/customers/${id}/discord/revoke`, {});
+      if (data.customer && state.profile && state.profile.id === id) {
+        state.profile = { ...state.profile, ...data.customer };
+        renderProfileHead();
+        renderProfileTab();
+      }
+      toast("Discord verification revoked", "success", data.detail || "");
+      await loadCustomers();
+    } catch (error) {
+      toast("Could not revoke verification", "error", error.message);
+      revokeDiscord.disabled = false;
     }
     return;
   }

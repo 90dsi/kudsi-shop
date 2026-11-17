@@ -6,6 +6,34 @@ let mode = params.get("mode") === "signup" ? "signup" : "login";
 
 const $ = (s) => document.querySelector(s);
 
+const OAUTH_ERRORS = {
+  not_configured: "That sign-in provider is not configured yet. Use email and password, or contact support.",
+  email_exists:
+    "An account already uses that email. Sign in with your password, then connect the provider from Account settings.",
+  identity_in_use: "That social account is already linked to a different shop account.",
+  suspended: "This account is suspended. Contact support and we'll help.",
+  denied: "Sign-in was cancelled.",
+  state: "That sign-in link expired or was tampered with. Please try again.",
+  provider: "The sign-in provider could not complete the request. Please try again.",
+  rate: "Too many attempts. Wait a minute and try again.",
+};
+
+function showOAuthMessage() {
+  const code = params.get("oauth_error");
+  const provider = (params.get("provider") || "Social").replace(/^\w/, (c) => c.toUpperCase());
+  if (!code) return;
+  const box = $("#authError");
+  const text = OAUTH_ERRORS[code] || "That sign-in could not be completed. Please try again.";
+  box.textContent = code === "email_exists" || code === "not_configured" ? text : `${provider}: ${text}`;
+  box.hidden = false;
+  box.classList.remove("ok");
+}
+
+function oauthHref(provider) {
+  const next = redirectTo && redirectTo.startsWith("/") && !redirectTo.startsWith("//") ? redirectTo : "";
+  return `/auth/${provider}/start${next ? `?next=${encodeURIComponent(next)}` : ""}`;
+}
+
 function setMode(next) {
   mode = next;
   const signup = mode === "signup";
@@ -17,13 +45,15 @@ function setMode(next) {
       ? "Reset your password"
       : "Welcome back";
   $("#authSub").textContent = signup
-    ? "Track orders, top up your balance and get codes instantly."
+    ? "Pick a display name, then track orders, top up and get codes instantly."
     : forgot
       ? "Enter your email and we'll send a secure, single-use reset link."
       : "Sign in to see your orders, balance and codes.";
 
   $("#submitBtn").textContent = signup ? "Create account" : forgot ? "Send reset link" : "Sign in";
   $("#nameField").hidden = !signup;
+  $("#nameHint").hidden = !signup;
+  $("#name").required = signup;
   $("#password").closest(".field").hidden = forgot;
   $("#forgotRow").hidden = forgot;
   $("#password").autocomplete = signup ? "new-password" : "current-password";
@@ -34,7 +64,8 @@ function setMode(next) {
   $("#authError").hidden = true;
   $("#authError").classList.remove("ok");
   $("#suspendedNote").hidden = !params.get("suspended");
-  if (!forgot) setTimeout(() => $("#email").focus(), 60);
+  showOAuthMessage();
+  if (!forgot) setTimeout(() => (signup ? $("#name") : $("#email")).focus(), 60);
   setModeParam(signup ? "signup" : "login");
 }
 
@@ -52,7 +83,7 @@ $("#authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const email = $("#email").value.trim();
   const password = $("#password").value;
-  const name = $("#name").value.trim();
+  const name = $("#name").value.trim().replace(/\s+/g, " ");
   const errorBox = $("#authError");
   const button = $("#submitBtn");
 
@@ -62,6 +93,18 @@ $("#authForm").addEventListener("submit", async (e) => {
     errorBox.textContent = "Enter a valid email address.";
     errorBox.hidden = false;
     return;
+  }
+  if (mode === "signup") {
+    if (!name) {
+      errorBox.textContent = "Enter a display name.";
+      errorBox.hidden = false;
+      return;
+    }
+    if (name.length > 30) {
+      errorBox.textContent = "Display names can be at most 30 characters.";
+      errorBox.hidden = false;
+      return;
+    }
   }
   if (mode !== "forgot" && password.length < 8) {
     errorBox.textContent = "Password must be at least 8 characters.";
@@ -84,7 +127,8 @@ $("#authForm").addEventListener("submit", async (e) => {
     }
 
     const path = mode === "signup" ? "/api/auth/signup" : "/api/auth/login";
-    const { user } = await api.post(path, { email, password, name });
+    const payload = mode === "signup" ? { email, password, name } : { email, password };
+    const { user } = await api.post(path, payload);
     const fallback = user.role === "admin" ? "/admin.html" : "/dashboard.html";
     window.location.href = redirectTo && redirectTo.startsWith("/") ? redirectTo : fallback;
   } catch (error) {
@@ -147,6 +191,23 @@ function setModeParam(next) {
     }
     const fallback = $("#contactFallback");
     if (fallback) fallback.hidden = Boolean(contact.telegramLink || contact.discordLink);
+    const auth = (site && site.auth) || {};
+    const googleBtn = $("#googleLogin");
+    const discordBtn = $("#discordLogin");
+    if (googleBtn) {
+      googleBtn.href = oauthHref("google");
+      if (!auth.google) {
+        googleBtn.classList.add("is-unconfigured");
+        googleBtn.title = "Google sign-in is not configured yet";
+      }
+    }
+    if (discordBtn) {
+      discordBtn.href = oauthHref("discord");
+      if (!auth.discord) {
+        discordBtn.classList.add("is-unconfigured");
+        discordBtn.title = "Discord sign-in is not configured yet";
+      }
+    }
     if (site && site.app && site.app.name) document.title = `Sign in — ${site.app.name}`;
   });
 

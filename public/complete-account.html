@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Finish your account — Kudsi Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/ui.css?v=8" />
+  <link rel="stylesheet" href="/css/social.css?v=1" />
+</head>
+<body class="auth-body">
+  <main class="auth-page" style="grid-template-columns: 1fr; max-width: 560px; margin: 0 auto; padding: 2rem 1rem">
+    <section class="auth-panel" style="width: 100%">
+      <div class="auth-card">
+        <a class="auth-brand" href="/" style="margin-bottom:1.2rem">
+          <span class="brand-mark">K</span>
+          <span><span data-app-name>Kudsi Shop</span></span>
+        </a>
+
+        <h1 id="completeTitle">Finish your account</h1>
+        <p class="sub" id="completeSub">Choose the display name other customers will see.</p>
+
+        <div class="verify-box" id="providerBox" hidden>
+          <span id="providerAvatar"></span>
+          <div class="verify-text">
+            <strong id="providerName">Connected account</strong>
+            <span id="providerDetail"></span>
+          </div>
+          <span class="social-badge ok">Verified</span>
+        </div>
+
+        <form id="completeForm" novalidate style="margin-top:1.1rem">
+          <div class="field">
+            <label for="displayName">Display name</label>
+            <input type="text" id="displayName" maxlength="30" autocomplete="nickname"
+                   placeholder="Your name or nickname" required />
+            <span class="hint">Required, up to 30 characters. It does not have to be unique.</span>
+          </div>
+          <p class="form-error" id="completeError" role="alert" hidden></p>
+          <button class="btn btn-primary btn-full btn-glow" type="submit" id="completeBtn">
+            Create my account
+          </button>
+        </form>
+
+        <p class="auth-alt" style="margin-top:1rem">
+          <a href="/login.html" id="cancelLink">Cancel and go back</a>
+        </p>
+
+        <div class="auth-note" style="margin-top:1rem">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2 4 6v6c0 5 3.4 8.9 8 10 4.6-1.1 8-5 8-10V6l-8-4Z"/><path d="m9 12 2 2 4-4"/></svg>
+          <span>We only ask for a display name here. Your email and password are never requested again.</span>
+        </div>
+      </div>
+      <p class="auth-foot"><a href="/">← Back to the store</a></p>
+    </section>
+  </main>
+
+  <script src="/js/api.js?v=15"></script>
+  <script src="/js/complete-account.js?v=1"></script>
+</body>
+</html>

@@ -37,6 +37,30 @@ const api = {
   post: (url, data) => api.request("POST", url, data),
   patch: (url, data) => api.request("PATCH", url, data),
   del: (url) => api.request("DELETE", url),
+  async upload(url, formData) {
+    const headers = {};
+    const token = csrfToken();
+    if (token) headers["X-CSRF-Token"] = token;
+    const res = await fetch(url, {
+      method: "POST",
+      headers,
+      credentials: "same-origin",
+      body: formData,
+    });
+    let payload = null;
+    try {
+      payload = await res.json();
+    } catch {
+      /* empty body */
+    }
+    if (!res.ok) {
+      const error = new Error((payload && payload.error) || `Request failed (${res.status})`);
+      error.status = res.status;
+      error.payload = payload;
+      throw error;
+    }
+    return payload || {};
+  },
 };
 
 const money = (n) => "$" + Number(n || 0).toFixed(2);
@@ -127,15 +151,35 @@ const initials = (emailOrName) => {
   return text.slice(0, 1).toUpperCase();
 };
 
-/** Avatar markup: uploaded pic, remote image, or a letter bubble. */
+/** Avatar markup: uploaded/social picture with a letter fallback behind it. */
 function avatarHTML(user, size = 40) {
   const src = user && (user.avatar || null);
-  if (src) {
-    return `<img class="avatar" src="${esc(src)}" alt="" width="${size}" height="${size}" loading="lazy" />`;
+  const letter = initials(user && (user.name || user.email));
+  const fallback = `<span class="avatar avatar-letter" style="width:${size}px;height:${size}px;font-size:${Math.round(
+    size * 0.42
+  )}px">${esc(letter)}</span>`;
+  if (!src) return fallback;
+  return `<span class="avatar-frame" style="width:${size}px;height:${size}px">${fallback}<img class="avatar" src="${esc(
+    src
+  )}" alt="" width="${size}" height="${size}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()" /></span>`;
+}
+
+/** Small SVG marks used by the connected-accounts screen. */
+function providerIcon(provider) {
+  if (provider === "google") {
+    return `<svg class="provider-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8Z"/>
+      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.7-4.9H1.3v3.1A12 12 0 0 0 12 24Z"/>
+      <path fill="#FBBC05" d="M5.3 14.4a7.2 7.2 0 0 1 0-4.6V6.7H1.3a12 12 0 0 0 0 10.7l4-3Z"/>
+      <path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A11.5 11.5 0 0 0 12 0 12 12 0 0 0 1.3 6.7l4 3.1C6.3 6.9 8.9 4.8 12 4.8Z"/>
+    </svg>`;
   }
-  return `<span class="avatar avatar-letter" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.42)}px">${esc(
-    initials(user && (user.name || user.email))
-  )}</span>`;
+  if (provider === "discord") {
+    return `<svg class="provider-mark" viewBox="0 0 24 24" aria-hidden="true">
+      <path fill="#5865F2" d="M20.32 4.57a19.8 19.8 0 0 0-4.93-1.52.07.07 0 0 0-.08.04c-.21.38-.45.87-.61 1.26a18.3 18.3 0 0 0-5.4 0 12.6 12.6 0 0 0-.62-1.26.08.08 0 0 0-.08-.04c-1.71.3-3.36.8-4.93 1.52a.07.07 0 0 0-.03.03C.53 9.04-.32 13.38.1 17.67a.08.08 0 0 0 .03.06 19.9 19.9 0 0 0 6.05 3.06.08.08 0 0 0 .09-.03c.47-.64.88-1.31 1.23-2.02a.08.08 0 0 0-.04-.11 13.1 13.1 0 0 1-1.87-.9.08.08 0 0 1 0-.13c.12-.1.25-.19.37-.29a.07.07 0 0 1 .08-.01c3.93 1.8 8.18 1.8 12.06 0a.07.07 0 0 1 .08.01c.12.1.25.2.37.3a.08.08 0 0 1 0 .12c-.6.35-1.22.65-1.88.9a.08.08 0 0 0-.04.11c.36.71.77 1.38 1.23 2.02a.08.08 0 0 0 .09.03 19.8 19.8 0 0 0 6.06-3.06.08.08 0 0 0 .03-.06c.5-4.96-.84-9.26-3.55-13.07a.06.06 0 0 0-.03-.03ZM8.02 15.04c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.17 1.1 2.15 2.42 0 1.33-.95 2.42-2.15 2.42Zm7.97 0c-1.18 0-2.15-1.09-2.15-2.42s.95-2.42 2.15-2.42c1.21 0 2.17 1.1 2.15 2.42 0 1.33-.94 2.42-2.15 2.42Z"/>
+    </svg>`;
+  }
+  return "";
 }
 
 /** Resize an uploaded image to a square data URL so avatars stay small. */

@@ -195,6 +195,10 @@ function renderRecentTx(rows) {
     .map(
       (tx) => `
       <div class="tx-row">
+        <span class="tx-avatar">${avatarHTML(
+          { name: tx.customer || tx.email, avatar: tx.avatar || null },
+          26
+        )}</span>
         <span class="txico ${tx.direction === "credit" ? "in" : "out"}">${tx.direction === "credit" ? "↓" : "↑"}</span>
         <span class="txmeta">
           <strong>${esc(tx.customer || tx.email)} · ${esc(tx.label)}</strong>
@@ -257,9 +261,11 @@ async function loadCustomers() {
   const q = $("#customerSearch").value.trim();
   const product = $("#customerProduct").value;
   const role = $("#customerRole").value;
+  const social = $("#customerSocial").value;
   if (q) params.set("q", q);
   if (product) params.set("product", product);
   if (role) params.set("role", role);
+  if (social) params.set("social", social);
 
   const { customers } = await api.get(`/api/admin/customers?${params}`);
   state.customers = customers;
@@ -277,13 +283,42 @@ function statusPill(status) {
   return `<span class="status status-${value}">${esc(value)}</span>`;
 }
 
+function signInCell(c) {
+  const chips = [];
+  if (c.googleConnected) {
+    chips.push(`<span class="provider-chip" title="${esc(c.google_email || "Google connected")}">${providerIcon(
+      "google"
+    )}<span>Google</span></span>`);
+  }
+  if (c.discordConnected) {
+    chips.push(`<span class="provider-chip" title="${esc(
+      c.discord_username ? `@${c.discord_username}` : "Discord connected"
+    )}">${providerIcon("discord")}<span>Discord</span></span>`);
+  }
+  if (!chips.length) {
+    return `<span class="muted" style="font-size:0.74rem">Email only</span>`;
+  }
+  const discordUser =
+    c.discordConnected && c.discord_username
+      ? `<span class="muted" style="display:block;font-size:0.7rem">@${esc(c.discord_username)}</span>`
+      : "";
+  const verified = c.discordConnected
+    ? `<span class="social-badge ${c.discordVerified ? "ok" : "off"}" style="margin-top:0.22rem">${
+        c.discordVerified ? "Verified" : "Unverified"
+      }</span>`
+    : "";
+  return `<div style="display:flex;flex-direction:column;gap:0.18rem;align-items:flex-start">${chips.join(
+    ""
+  )}${discordUser}${verified}</div>`;
+}
+
 function renderCustomers() {
   const body = $("#customersBody");
   const list = state.customers;
   $("#customerCount").textContent = `${list.length} account${list.length === 1 ? "" : "s"}`;
 
   if (!list.length) {
-    body.innerHTML = `<tr><td colspan="9" class="empty-row">No customers match those filters yet.</td></tr>`;
+    body.innerHTML = `<tr><td colspan="10" class="empty-row">No customers match those filters yet.</td></tr>`;
     return;
   }
 
@@ -308,6 +343,7 @@ function renderCustomers() {
           <td class="num muted hide-md">${fmtMoney(c.deposited, symbol)}</td>
           <td class="num muted hide-md">${fmtMoney(c.withdrawn, symbol)}</td>
           <td class="num">${c.order_count}<span class="hint"> · ${c.tx_count} tx</span></td>
+          <td>${signInCell(c)}</td>
           <td>${statusPill(c.status)}</td>
           <td class="muted hide-sm">${today(c.created_at)}</td>
           <td style="white-space:nowrap">
@@ -356,9 +392,12 @@ function renderOrders() {
         <tr>
           <td><strong>${esc(o.id)}</strong></td>
           <td>
-            <div class="who" style="min-width:0">
-              <span class="muted" style="font-size:0.8rem">${esc(o.email)}</span>
-              ${o.contact && o.contact.handle ? `<span class="muted" style="display:block;font-size:0.72rem">${esc(o.contact.type === "discord" ? "Discord" : "Telegram")}: ${esc(o.contact.handle)}</span>` : `<span class="pill pill-expired" style="font-size:0.65rem">no contact</span>`}
+            <div class="person">
+              ${avatarHTML({ name: o.customerName || o.email, avatar: o.avatar || null }, 30)}
+              <div class="who" style="min-width:0">
+                <span class="muted" style="font-size:0.8rem">${esc(o.email)}</span>
+                ${o.contact && o.contact.handle ? `<span class="muted" style="display:block;font-size:0.72rem">${esc(o.contact.type === "discord" ? "Discord" : "Telegram")}: ${esc(o.contact.handle)}</span>` : `<span class="pill pill-expired" style="font-size:0.65rem">no contact</span>`}
+              </div>
             </div>
           </td>
           <td><div class="mini-products">${items}</div></td>
@@ -1373,13 +1412,16 @@ async function loadOutbox() {
 
 /* ---------------- CSV ---------------- */
 function exportCustomers() {
-  const header = ["email", "name", "role", "contact_type", "contact_handle", "orders", "spent", "products", "joined"];
+  const header = ["email", "name", "role", "contact_type", "contact_handle", "google_email", "discord_username", "discord_verified", "orders", "spent", "products", "joined"];
   const rows = state.customers.map((c) => [
     c.email,
     c.name,
     c.role,
     c.contact_type || "",
     c.contact_handle || "",
+    c.googleConnected ? c.google_email || "connected" : "",
+    c.discordConnected ? c.discord_username || "connected" : "",
+    c.discordConnected ? (c.discordVerified ? "yes" : "no") : "",
     c.order_count,
     c.spent,
     c.products.map((p) => `${p.name} x${p.qty}`).join(" | "),
@@ -1416,6 +1458,7 @@ function bindEvents() {
   });
   $("#customerProduct").addEventListener("change", loadCustomers);
   $("#customerRole").addEventListener("change", loadCustomers);
+  $("#customerSocial").addEventListener("change", loadCustomers);
 
   let orderTimer;
   $("#orderSearch").addEventListener("input", () => {

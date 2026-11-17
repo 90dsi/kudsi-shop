@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="stylesheet" href="/css/ui.css?v=8" />
+  <link rel="stylesheet" href="/css/social.css?v=1" />
 </head>
 <body>
   <header class="site-header">
@@ -30,7 +32,7 @@
     <div class="page-head">
       <div>
         <h1>My account</h1>
-        <p>Your details and order history.</p>
+        <p>Your details, sign-in methods and order history.</p>
       </div>
     </div>
 
@@ -48,11 +50,7 @@
         <div class="form-grid">
           <div class="field">
             <label for="nameInput">Display name</label>
-            <input type="text" id="nameInput" placeholder="Your name" />
-          </div>
-          <div class="field">
-            <label for="avatarInput">Photo</label>
-            <input type="file" id="avatarInput" accept="image/*" />
+            <input type="text" id="nameInput" placeholder="Your name" maxlength="30" />
           </div>
           <div class="field">
             <label for="contactTypeInput">Deliver codes to</label>
@@ -66,7 +64,21 @@
             <input type="text" id="contactInput" placeholder="@yourname" autocomplete="off" />
           </div>
         </div>
-        <div class="row" style="display: flex; gap: 0.5rem; align-items: center">
+
+        <div class="avatar-editor">
+          <div class="avatar-preview" id="avatarPreview"></div>
+          <div class="field">
+            <label for="avatarInput">Profile photo</label>
+            <input type="file" id="avatarInput" accept="image/jpeg,image/png,image/webp" />
+            <span class="hint">JPG, PNG or WebP, up to 2 MB. The first letter is used when you have no photo.</span>
+          </div>
+          <div class="avatar-actions">
+            <button class="btn btn-primary btn-sm" type="button" id="uploadAvatar" disabled>Save photo</button>
+            <button class="btn btn-ghost btn-sm" type="button" id="removeAvatar">Remove photo</button>
+          </div>
+        </div>
+
+        <div class="row" style="display: flex; gap: 0.5rem; align-items: center; margin-top: 1rem; flex-wrap: wrap">
           <button class="btn btn-primary" type="submit" id="saveProfile">Save changes</button>
           <a class="btn btn-ghost" href="/messages.html">Messages</a>
           <span class="small muted" id="profileStatus"></span>
@@ -74,11 +86,87 @@
       </form>
     </div>
 
+    <!-- ========================= connected accounts ========================= -->
+    <section class="social-card" id="connectedCard">
+      <header>
+        <div>
+          <h2>Connected accounts</h2>
+          <p class="sub">Use Google, Discord or a password to sign in to the same shop account.</p>
+        </div>
+        <span class="social-badge off" id="connectionCount">Loading…</span>
+      </header>
+      <div class="connected-grid" id="connectedGrid">
+        <p class="empty-mini">Loading sign-in methods…</p>
+      </div>
+      <div class="inline-note" id="connectionNote" hidden></div>
+    </section>
+
+    <!-- ============================ security ============================ -->
+    <section class="social-card" id="securityCard">
+      <header>
+        <div>
+          <h2>Security centre</h2>
+          <p class="sub">Passwords, login activity and the browsers signed in to your account.</p>
+        </div>
+      </header>
+
+      <div class="security-grid">
+        <div>
+          <h3 class="section-title">Password</h3>
+          <p class="sub" id="passwordState">Checking…</p>
+          <form class="password-form" id="passwordForm">
+            <div class="field" id="currentPasswordField">
+              <label for="currentPassword">Current password</label>
+              <input type="password" id="currentPassword" autocomplete="current-password" placeholder="Your current password" />
+            </div>
+            <div class="field">
+              <label for="newPassword" id="newPasswordLabel">New password</label>
+              <input type="password" id="newPassword" autocomplete="new-password" placeholder="At least 8 characters" />
+            </div>
+            <div class="row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+              <button class="btn btn-primary btn-sm" type="submit" id="savePassword">Update password</button>
+              <span class="small muted" id="passwordStatus"></span>
+            </div>
+          </form>
+        </div>
+
+        <div>
+          <h3 class="section-title">Recent sign-in activity</h3>
+          <div class="activity-list" id="activityList">
+            <p class="empty-mini">Loading activity…</p>
+          </div>
+        </div>
+      </div>
+
+      <h3 class="section-title">Active sessions</h3>
+      <div class="session-list" id="sessionList">
+        <p class="empty-mini">Loading sessions…</p>
+      </div>
+      <div class="row" style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;margin-top:0.7rem">
+        <button class="btn btn-ghost btn-sm" type="button" id="revokeOthers">Sign out other sessions</button>
+        <span class="small muted" id="sessionStatus"></span>
+      </div>
+    </section>
+
+    <!-- ========================= discord verification ========================= -->
+    <section class="social-card" id="discordVerifyCard">
+      <header>
+        <div>
+          <h2>Discord verification</h2>
+          <p class="sub">Join the official server and unlock your verified role.</p>
+        </div>
+        <span class="social-badge off" id="discordBadge">Not verified</span>
+      </header>
+      <div id="discordVerifyBody">
+        <p class="empty-mini">Loading Discord status…</p>
+      </div>
+    </section>
+
     <h2 style="font-size: 1.15rem; margin: 1.8rem 0 0.9rem">Order history</h2>
     <div id="ordersList"><p class="empty-row">Loading orders…</p></div>
   </main>
 
-  <script src="/js/api.js?v=8"></script>
-  <script src="/js/account.js"></script>
+  <script src="/js/api.js?v=15"></script>
+  <script src="/js/account.js?v=15"></script>
 </body>
 </html>

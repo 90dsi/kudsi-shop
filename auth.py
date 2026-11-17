@@ -8,7 +8,8 @@ import time
 
 from flask import g, jsonify, redirect, request, session
 
-from db import execute, fetch_one, get_db, get_setting
+import social
+from db import execute, fetch_all, fetch_one, get_db, get_setting
 
 SCRYPT_N = 16384
 SCRYPT_R = 8
@@ -40,15 +41,136 @@ def verify_password(password: str, stored: str | None) -> bool:
 
 
 # ------------------------------------------------------------------- sessions
-def login_user(user_id: int):
+def client_ip() -> str:
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    value = forwarded.split(",")[0].strip() if forwarded else (request.remote_addr or "")
+    return value[:64]
+
+
+def client_ua() -> str:
+    return (request.headers.get("User-Agent") or "")[:255]
+
+
+def mask_ip(value) -> str:
+    """Show enough of an IP to recognise it, never the full address."""
+    value = str(value or "").strip()
+    if not value:
+        return "—"
+    if ":" in value:
+        parts = [part for part in value.split(":") if part]
+        return (":".join(parts[:4]) + "::") if parts else "—"
+    parts = value.split(".")
+    if len(parts) == 4:
+        return ".".join(parts[:3]) + ".x"
+    return value[:24]
+
+
+def device_label(user_agent) -> str:
+    ua = str(user_agent or "")
+    if not ua:
+        return "Unknown device"
+    browser = "Browser"
+    for needle, label in (
+        ("Edg/", "Edge"),
+        ("OPR/", "Opera"),
+        ("Firefox/", "Firefox"),
+        ("Chrome/", "Chrome"),
+        ("Safari/", "Safari"),
+    ):
+        if needle in ua:
+            browser = label
+            break
+    system = "Unknown OS"
+    for needle, label in (
+        ("Android", "Android"),
+        ("iPhone", "iPhone"),
+        ("iPad", "iPad"),
+        ("Windows", "Windows"),
+        ("Mac OS X", "macOS"),
+        ("Linux", "Linux"),
+    ):
+        if needle in ua:
+            system = label
+            break
+    return f"{browser} on {system}"
+
+
+def record_login_event(user_id, provider: str, status: str, email: str | None = None) -> None:
+    try:
+        execute(
+            "INSERT INTO login_events (user_id, email, provider, status, ip, user_agent) "
+            "VALUES (?, ?, ?, ?, ?, ?)",
+            (
+                user_id,
+                (email or "")[:190] or None,
+                (provider or "password")[:20],
+                (status or "success")[:20],
+                client_ip(),
+                client_ua(),
+            ),
+        )
+    except Exception:  # noqa: BLE001 - logging must never break sign-in
+        pass
+
+
+def _start_session(user_id: int, provider: str) -> str:
+    token = secrets.token_urlsafe(32)
+    execute(
+        "INSERT INTO user_sessions (user_id, token_hash, provider, ip, user_agent, last_seen_at) "
+        "VALUES (?, ?, ?, ?, ?, datetime('now'))",
+        (user_id, hash_token(token), (provider or "password")[:20], client_ip(), client_ua()),
+    )
+    return token
+
+
+def login_user(user_id: int, provider: str = "password"):
+    """Start a brand-new session, invalidating whatever came before it."""
+    previous = session.get("sid")
+    if previous:
+        revoke_session_token(previous)
+    token = _start_session(user_id, provider)
     session.clear()
     session["uid"] = user_id
+    session["sid"] = token
     session.permanent = True
     g.pop("user", None)  # drop any per-request cache
+    execute("UPDATE users SET last_login = datetime('now') WHERE id = ?", (user_id,))
+    record_login_event(user_id, provider, "success")
+
+
+def revoke_session_token(token: str | None) -> bool:
+    if not token:
+        return False
+    with get_db() as con:
+        changed = con.execute(
+            "UPDATE user_sessions SET revoked_at = datetime('now') "
+            "WHERE token_hash = ? AND revoked_at IS NULL",
+            (hash_token(str(token)),),
+        ).rowcount
+    return bool(changed)
+
+
+def revoke_other_sessions(user_id: int, keep_token: str | None) -> int:
+    with get_db() as con:
+        if keep_token:
+            changed = con.execute(
+                "UPDATE user_sessions SET revoked_at = datetime('now') "
+                "WHERE user_id = ? AND token_hash != ? AND revoked_at IS NULL",
+                (user_id, hash_token(str(keep_token))),
+            ).rowcount
+        else:
+            changed = con.execute(
+                "UPDATE user_sessions SET revoked_at = datetime('now') "
+                "WHERE user_id = ? AND revoked_at IS NULL",
+                (user_id,),
+            ).rowcount
+    return int(changed or 0)
 
 
 def logout_user():
+    revoke_session_token(session.get("sid"))
     session.clear()
+    g.pop("user", None)
 
 
 def current_user():
@@ -57,21 +179,104 @@ def current_user():
         return g.user
     uid = session.get("uid")
     user = None
+    token = session.get("sid")
+    if uid and token:
+        record = fetch_one(
+            "SELECT id, revoked_at FROM user_sessions WHERE token_hash = ?",
+            (hash_token(str(token)),),
+        )
+        if not record or record["revoked_at"]:
+            # The session was revoked from the security centre (or the database
+            # was restored). Treat it as signed out.
+            session.clear()
+            g.user = None
+            return None
+        execute(
+            "UPDATE user_sessions SET last_seen_at = datetime('now') "
+            "WHERE token_hash = ? AND (last_seen_at IS NULL "
+            "OR last_seen_at < datetime('now', '-5 minutes'))",
+            (hash_token(str(token)),),
+        )
     if uid:
         user = fetch_one(
-            "SELECT id, email, name, role, avatar, contact_type, contact_handle, created_at, "
-            "last_login, balance_cents, deposited_cents, withdrawn_cents, status "
+            "SELECT id, email, name, role, avatar, avatar_file, contact_type, contact_handle, "
+            "created_at, last_login, balance_cents, deposited_cents, withdrawn_cents, status, "
+            "password_hash, google_sub, google_email, google_name, google_avatar, google_linked_at, "
+            "discord_id, discord_email, discord_username, discord_global_name, discord_avatar, "
+            "discord_linked_at, discord_verified_at, discord_verified_guild, discord_verified_role, "
+            "discord_check_at, discord_check_status "
             "FROM users WHERE id = ?",
             (uid,),
         )
+        if not user:
+            session.clear()
     g.user = user
     return user
+
+
+def list_sessions(user_id: int, current_token: str | None = None) -> list[dict]:
+    rows = fetch_all(
+        "SELECT id, token_hash, provider, ip, user_agent, created_at, last_seen_at "
+        "FROM user_sessions WHERE user_id = ? AND revoked_at IS NULL "
+        "ORDER BY COALESCE(last_seen_at, created_at) DESC LIMIT 50",
+        (user_id,),
+    )
+    current_hash = hash_token(str(current_token)) if current_token else ""
+    return [
+        {
+            "id": row["id"],
+            "provider": row["provider"],
+            "ip": mask_ip(row["ip"]),
+            "device": device_label(row["user_agent"]),
+            "createdAt": row["created_at"],
+            "lastSeenAt": row["last_seen_at"],
+            "current": bool(current_hash and row["token_hash"] == current_hash),
+        }
+        for row in rows
+    ]
+
+
+def login_activity(user_id: int, limit: int = 20) -> list[dict]:
+    rows = fetch_all(
+        "SELECT provider, status, ip, user_agent, created_at FROM login_events "
+        "WHERE user_id = ? ORDER BY id DESC LIMIT ?",
+        (user_id, max(1, min(int(limit), 100))),
+    )
+    return [
+        {
+            "provider": row["provider"],
+            "status": row["status"],
+            "ip": mask_ip(row["ip"]),
+            "device": device_label(row["user_agent"]),
+            "createdAt": row["created_at"],
+        }
+        for row in rows
+    ]
+
+
+def count_login_methods(user: dict | None) -> int:
+    if not user:
+        return 0
+    methods = (
+        bool(user.get("password_hash") or user.get("has_password")),
+        bool(user.get("google_sub")),
+        bool(user.get("discord_id")),
+    )
+    return sum(1 for method in methods if method)
 
 
 def public_user(user, order_count: int | None = None):
     if not user:
         return None
-    data = {k: user[k] for k in ("id", "email", "name", "role", "avatar", "created_at")}
+    data = {k: user[k] for k in ("id", "email", "name", "role", "created_at")}
+    data["avatar"] = social.avatar_url(user)
+    data["hasCustomAvatar"] = bool(
+        user.get("avatar_file") or str(user.get("avatar") or "").startswith("data:image/")
+    )
+    data["hasPassword"] = bool(user.get("password_hash") or user.get("has_password"))
+    data["googleConnected"] = bool(user.get("google_sub"))
+    data["discordConnected"] = bool(user.get("discord_id"))
+    data["discordVerified"] = bool(user.get("discord_verified_at"))
     data["contact"] = {
         "type": user.get("contact_type"),
         "handle": user.get("contact_handle"),

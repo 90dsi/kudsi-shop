@@ -905,6 +905,7 @@ input::placeholder, textarea::placeholder { color: #5d6684; }
 .tx-row .txico.in { background: rgba(46, 230, 168, 0.12); color: var(--ok); }
 .tx-row .txico.out { background: rgba(255, 92, 122, 0.12); color: #ff9db0; }
 .tx-row .txico svg { width: 17px; height: 17px; }
+.tx-row .tx-avatar { display: inline-flex; flex: none; }
 .tx-row .txmeta { min-width: 0; flex: 1; }
 .tx-row .txmeta strong { display: block; font-size: 0.87rem; font-weight: 600; }
 .tx-row .txmeta span { font-size: 0.75rem; color: var(--muted); }

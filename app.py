@@ -9,6 +9,7 @@ import json
 import os
 import re
 import secrets
+import sqlite3
 import threading
 import time
 from datetime import timedelta
@@ -24,6 +25,7 @@ import mailer
 import notify
 import payments
 import payqr
+import social
 import wallet
 from db import (
     DATA_DIR,
@@ -193,6 +195,59 @@ def clean(value, limit: int = 200) -> str:
 
 def is_email(value: str) -> bool:
     return bool(EMAIL_RE.match(value)) and len(value) <= 190
+
+
+DISPLAY_NAME_MAX = 30
+
+
+def validate_display_name(value, current: str | None = None) -> tuple[str | None, str | None]:
+    """Trim, require, and cap a display name. Unicode is welcome."""
+    text = str(value or "").strip()
+    text = re.sub(r"\s+", " ", text)
+    if not text:
+        return None, "Enter a display name."
+    if any(ord(char) < 32 for char in text):
+        return None, "That display name contains unsupported characters."
+    if len(text) > DISPLAY_NAME_MAX:
+        return None, f"Display names can be at most {DISPLAY_NAME_MAX} characters."
+    if current and text == current:
+        return current, None
+    return text, None
+
+
+def safe_next(value, fallback: str = "/dashboard.html") -> str:
+    text = str(value or "").strip()
+    if text.startswith("/") and not text.startswith("//") and len(text) <= 500:
+        return text
+    return fallback
+
+
+def synthetic_email(provider: str, provider_id: str) -> str:
+    """Some provider accounts have no email. The users table still needs one."""
+    slug = re.sub(r"[^A-Za-z0-9_-]", "", str(provider_id))[:40] or secrets.token_hex(6)
+    candidate = f"{provider}-{slug}@users.kudsi.local"
+    if fetch_one("SELECT id FROM users WHERE email = ?", (candidate,)):
+        candidate = f"{provider}-{slug}-{secrets.token_hex(3)}@users.kudsi.local"
+    return candidate
+
+
+PROVIDER_FIELDS = {
+    "google": {
+        "id": "google_sub",
+        "email": "google_email",
+        "name": "google_name",
+        "avatar": "google_avatar",
+        "linked": "google_linked_at",
+    },
+    "discord": {
+        "id": "discord_id",
+        "email": "discord_email",
+        "username": "discord_username",
+        "global_name": "discord_global_name",
+        "avatar": "discord_avatar",
+        "linked": "discord_linked_at",
+    },
+}
 
 
 def product_variants(row: dict) -> list[dict]:
@@ -535,7 +590,9 @@ def setup():
     data = body()
     email = clean(data.get("email"), 190).lower()
     password = str(data.get("password") or "")
-    name = clean(data.get("name"), 80) or "Owner"
+    name, name_error = validate_display_name(data.get("name") or "Owner")
+    if name_error:
+        return err(name_error)
 
     if not is_email(email):
         return err("Enter a valid email address.")
@@ -557,12 +614,14 @@ def signup():
     data = body()
     email = clean(data.get("email"), 190).lower()
     password = str(data.get("password") or "")
-    name = clean(data.get("name"), 80)
+    name, name_error = validate_display_name(data.get("name"))
 
     if not is_email(email):
         return err("Enter a valid email address.")
     if len(password) < 8:
         return err("Password must be at least 8 characters.")
+    if name_error:
+        return err(name_error)
     if fetch_one("SELECT id FROM users WHERE email = ?", (email,)):
         return jsonify(
             error="That email already has an account. Sign in instead.",
@@ -573,7 +632,7 @@ def signup():
         "INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, ?, 'customer')",
         (email, name, auth.hash_password(password)),
     )
-    auth.login_user(uid)
+    auth.login_user(uid, "password")
     return jsonify(user=auth.public_user(auth.current_user()))
 
 
@@ -591,15 +650,16 @@ def login():
         # form instead of leaving them stuck. Rate limiting still applies.
         return jsonify(error="No account found for that email.", code="no_account"), 404
     if not auth.verify_password(password, user["password_hash"]):
+        auth.record_login_event(user["id"], "password", "failed", email)
         return err("Wrong email or password.", 401)
     if user.get("status", "active") != "active":
+        auth.record_login_event(user["id"], "password", "blocked", email)
         return err(
             "This account is suspended. Message us on Telegram or Discord and we'll help.",
             403,
         )
 
-    execute("UPDATE users SET last_login = datetime('now') WHERE id = ?", (user["id"],))
-    auth.login_user(user["id"])
+    auth.login_user(user["id"], "password")
     return jsonify(user=auth.public_user(auth.current_user()))
 
 
@@ -732,6 +792,7 @@ def me():
     data["wallet"] = wallet.summary(user["id"])
     data["notifications"] = notify.unread_notifications(user["id"])
     data["csrfToken"] = csrf_token()
+    data["syntheticEmail"] = str(user["email"]).endswith("@users.kudsi.local")
     return jsonify(user=data)
 
 
@@ -740,17 +801,28 @@ def me():
 def update_me():
     data = body()
     user = auth.current_user()
-    name = clean(data.get("name"), 80) or user["name"]
-    avatar = data.get("avatar")
+    name = user["name"]
+    if "name" in data:
+        name, name_error = validate_display_name(data.get("name"), user["name"])
+        if name_error:
+            return err(name_error)
+    avatar = user["avatar"]
+    if "avatar" in data:
+        raw = data.get("avatar")
+        if raw in (None, ""):
+            avatar = None
+        else:
+            avatar = str(raw)
+            if len(avatar) > 600_000:
+                return err("That image is too large — pick something under 400 KB.")
+            if not (
+                avatar.startswith("data:image/")
+                or avatar.startswith("https://")
+                or avatar.startswith("http://")
+            ):
+                return err("Unsupported image format.")
     contact_type = user.get("contact_type")
     contact_handle = user.get("contact_handle")
-
-    if avatar is not None:
-        avatar = str(avatar)
-        if avatar and len(avatar) > 600_000:
-            return err("That image is too large — pick something under 400 KB.")
-        if avatar and not (avatar.startswith("data:image/") or avatar.startswith("http")):
-            return err("Unsupported image format.")
 
     if "contactType" in data:
         contact_type = clean(data.get("contactType"), 12).lower()
@@ -765,7 +837,7 @@ def update_me():
         "UPDATE users SET name = ?, avatar = ?, contact_type = ?, contact_handle = ? WHERE id = ?",
         (
             name,
-            avatar if avatar is not None else user["avatar"],
+            avatar,
             contact_type,
             contact_handle,
             user["id"],
@@ -773,6 +845,587 @@ def update_me():
     )
     g.pop("user", None)
     return jsonify(user=auth.public_user(auth.current_user()))
+
+
+# --------------------------------------------------------------- social sign-in
+OAUTH_STATE_KEY = "oauth_state"
+OAUTH_PENDING_KEY = "oauth_pending"
+OAUTH_PENDING_TTL = 900  # 15 minutes
+
+
+def _oauth_fail(provider: str, code: str, mode: str = "login"):
+    base = "/account.html" if mode == "link" else "/login.html"
+    separator = "&" if "?" in base else "?"
+    return redirect(f"{base}{separator}oauth_error={code}&provider={provider}")
+
+
+def _identity_owner(provider: str, provider_id: str):
+    field = PROVIDER_FIELDS[provider]["id"]
+    return fetch_one(f"SELECT id, email, name, status FROM users WHERE {field} = ?", (provider_id,))
+
+
+def _identity_columns(provider: str, profile: dict) -> tuple[list[str], list]:
+    fields = PROVIDER_FIELDS[provider]
+    columns: list[str] = []
+    params: list = []
+    mapping = {
+        "id": profile.get("id"),
+        "email": (profile.get("email") or "").strip().lower() or None,
+        "name": (profile.get("name") or "").strip() or None,
+        "username": (profile.get("username") or "").strip() or None,
+        "global_name": (profile.get("global_name") or "").strip() or None,
+        "avatar": (profile.get("avatar_hash") if provider == "discord" else profile.get("avatar")) or None,
+    }
+    for key, column in fields.items():
+        if key == "linked":
+            continue
+        if key in mapping:
+            columns.append(column)
+            params.append(mapping[key])
+    return columns, params
+
+
+def _link_identity(user_id: int, profile: dict) -> tuple[bool, str]:
+    provider = profile["provider"]
+    owner = _identity_owner(provider, profile["id"])
+    if owner and int(owner["id"]) != int(user_id):
+        return False, "identity_in_use"
+    columns, params = _identity_columns(provider, profile)
+    linked_column = PROVIDER_FIELDS[provider]["linked"]
+    assignments = ", ".join(f"{column} = ?" for column in columns)
+    execute(
+        f"UPDATE users SET {assignments}, {linked_column} = datetime('now') WHERE id = ?",
+        (*params, user_id),
+    )
+    return True, ""
+
+
+def _refresh_identity(user_id: int, profile: dict) -> None:
+    """Keep the stored provider name/avatar fresh on every sign-in."""
+    provider = profile["provider"]
+    columns, params = _identity_columns(provider, profile)
+    if not columns:
+        return
+    assignments = ", ".join(f"{column} = ?" for column in columns)
+    execute(f"UPDATE users SET {assignments} WHERE id = ?", (*params, user_id))
+
+
+def _record_discord_check(user_id: int, status: str, detail: str = "") -> None:
+    execute(
+        "UPDATE users SET discord_check_at = datetime('now'), discord_check_status = ?, "
+        "discord_check_detail = ? WHERE id = ?",
+        (status[:40], (detail or "")[:300], user_id),
+    )
+
+
+@app.get("/auth/<provider>/start")
+def oauth_start(provider: str):
+    provider = str(provider or "").lower()
+    if provider not in PROVIDER_FIELDS:
+        return redirect("/login.html?oauth_error=provider")
+    if too_many(30, 60):
+        return redirect("/login.html?oauth_error=rate")
+
+    mode = "link" if request.args.get("mode") == "link" else "login"
+    user = auth.current_user()
+    if mode == "link":
+        if not user:
+            return redirect("/login.html?next=/account.html")
+    elif user:
+        return redirect("/admin.html" if user["role"] == "admin" else "/dashboard.html")
+
+    if not social.provider_configured(provider):
+        target = "/account.html" if mode == "link" else "/login.html"
+        separator = "&" if "?" in target else "?"
+        return redirect(f"{target}{separator}oauth_error=not_configured&provider={provider}")
+
+    fallback = "/account.html" if mode == "link" else "/dashboard.html"
+    next_url = safe_next(request.args.get("next"), fallback)
+    state = secrets.token_urlsafe(32)
+    session[OAUTH_STATE_KEY] = {
+        "state": state,
+        "provider": provider,
+        "mode": mode,
+        "uid": user["id"] if mode == "link" and user else None,
+        "next": next_url,
+        "created": int(time.time()),
+    }
+    redirect_uri = f"{base_url()}/auth/{provider}/callback"
+    try:
+        url = social.authorize_url(provider, state, redirect_uri)
+    except social.OAuthError:
+        return _oauth_fail(provider, "provider", mode)
+    return redirect(url)
+
+
+@app.get("/auth/<provider>/callback")
+def oauth_callback(provider: str):
+    provider = str(provider or "").lower()
+    if provider not in PROVIDER_FIELDS:
+        return redirect("/login.html?oauth_error=provider")
+    if too_many(60, 60):
+        return redirect("/login.html?oauth_error=rate")
+
+    saved = session.pop(OAUTH_STATE_KEY, None)
+    mode = (saved or {}).get("mode", "login") if isinstance(saved, dict) else "login"
+    if not isinstance(saved, dict) or saved.get("provider") != provider:
+        return _oauth_fail(provider, "state", mode)
+    if int(time.time()) - int(saved.get("created") or 0) > OAUTH_PENDING_TTL:
+        return _oauth_fail(provider, "state", mode)
+    if not secrets.compare_digest(
+        str(saved.get("state") or ""), str(request.args.get("state") or "")
+    ):
+        return _oauth_fail(provider, "state", mode)
+    if request.args.get("error"):
+        return _oauth_fail(provider, "denied", mode)
+
+    code = clean(request.args.get("code"), 600)
+    if not code:
+        return _oauth_fail(provider, "provider", mode)
+
+    redirect_uri = f"{base_url()}/auth/{provider}/callback"
+    try:
+        profile = social.fetch_profile(provider, code, redirect_uri)
+    except social.OAuthError as exc:
+        print(f"[oauth] {provider} profile failed: {exc}")
+        return _oauth_fail(provider, "provider", mode)
+
+    if mode == "link":
+        user = auth.current_user()
+        if not user:
+            return redirect("/login.html?next=/account.html")
+        if str(user["id"]) != str(saved.get("uid")):
+            return _oauth_fail(provider, "state", "link")
+        linked, reason = _link_identity(user["id"], profile)
+        if not linked:
+            return _oauth_fail(provider, reason, "link")
+        notify.customer_notify(
+            user["id"],
+            "security",
+            f"{provider.title()} connected",
+            f"Your {provider.title()} account is now a sign-in method for this shop account.",
+        )
+        g.pop("user", None)
+        return redirect(f"/account.html?linked={provider}")
+
+    owner = _identity_owner(provider, profile["id"])
+    if owner:
+        if owner.get("status", "active") != "active":
+            return _oauth_fail(provider, "suspended", mode)
+        _refresh_identity(owner["id"], profile)
+        auth.login_user(owner["id"], provider)
+        current = auth.current_user()
+        fallback = "/admin.html" if current and current["role"] == "admin" else "/dashboard.html"
+        return redirect(safe_next(saved.get("next"), fallback))
+
+    email = (profile.get("email") or "").strip().lower()
+    if email and fetch_one("SELECT id FROM users WHERE email = ?", (email,)):
+        # Never merge accounts just because the email matches. The customer must
+        # sign in normally and connect the provider from Account settings.
+        return _oauth_fail(provider, "email_exists", mode)
+
+    token = secrets.token_urlsafe(32)
+    expires_at = int(time.time()) + OAUTH_PENDING_TTL
+    execute(
+        "INSERT INTO oauth_pending (token_hash, provider, provider_id, email, email_verified, "
+        "name, username, global_name, avatar, avatar_hash, next_url, expires_at) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (
+            auth.hash_token(token),
+            provider,
+            profile["id"],
+            email or None,
+            1 if profile.get("email_verified") else 0,
+            (profile.get("name") or "")[:80],
+            (profile.get("username") or "")[:80],
+            (profile.get("global_name") or "")[:80],
+            (profile.get("avatar") or "")[:600],
+            (profile.get("avatar_hash") or "")[:120],
+            safe_next(saved.get("next"), "/dashboard.html"),
+            expires_at,
+        ),
+    )
+    session[OAUTH_PENDING_KEY] = token
+    return redirect("/complete-account.html")
+
+
+def _pending_row():
+    token = session.get(OAUTH_PENDING_KEY)
+    if not token:
+        return None
+    row = fetch_one(
+        "SELECT * FROM oauth_pending WHERE token_hash = ?", (auth.hash_token(str(token)),)
+    )
+    if not row or int(row["expires_at"] or 0) < int(time.time()):
+        if row:
+            execute("DELETE FROM oauth_pending WHERE token_hash = ?", (row["token_hash"],))
+        session.pop(OAUTH_PENDING_KEY, None)
+        return None
+    return row
+
+
+@app.get("/api/auth/oauth/pending")
+def oauth_pending_info():
+    row = _pending_row()
+    if not row:
+        return err("There is no sign-in waiting to be completed.", 404)
+    suggested = (row.get("name") or row.get("global_name") or row.get("username") or "").strip()
+    if not suggested and row.get("email"):
+        suggested = str(row["email"]).split("@")[0]
+    return jsonify(
+        pending={
+            "provider": row["provider"],
+            "email": row.get("email") or "",
+            "username": row.get("username") or "",
+            "name": suggested[:DISPLAY_NAME_MAX],
+            "avatar": row.get("avatar") or "",
+        }
+    )
+
+
+@app.post("/api/auth/oauth/complete")
+def oauth_complete():
+    if too_many(20, 300):
+        return err("Too many attempts. Try again in a few minutes.", 429)
+    row = _pending_row()
+    if not row:
+        return err("That sign-in expired. Start again from the sign-in page.", 410)
+    name, name_error = validate_display_name(body().get("name"))
+    if name_error:
+        return err(name_error)
+
+    provider = row["provider"]
+    if provider not in PROVIDER_FIELDS:
+        return err("Unknown sign-in provider.", 400)
+
+    owner = _identity_owner(provider, row["provider_id"])
+    if owner:
+        # The identity was connected in another tab while this page was open.
+        execute("DELETE FROM oauth_pending WHERE token_hash = ?", (row["token_hash"],))
+        session.pop(OAUTH_PENDING_KEY, None)
+        auth.login_user(owner["id"], provider)
+        return jsonify(user=auth.public_user(auth.current_user()), existing=True)
+
+    email = (row.get("email") or "").strip().lower()
+    if email and fetch_one("SELECT id FROM users WHERE email = ?", (email,)):
+        return err(
+            "An account with that email already exists. Sign in with your password, "
+            "then connect this provider from Account settings.",
+            409,
+        )
+    if not email:
+        email = synthetic_email(provider, row["provider_id"])
+
+    profile = {
+        "provider": provider,
+        "id": row["provider_id"],
+        "email": email,
+        "name": row.get("name") or "",
+        "username": row.get("username") or "",
+        "global_name": row.get("global_name") or "",
+        "avatar": row.get("avatar") or "",
+        "avatar_hash": row.get("avatar_hash") or "",
+    }
+    columns, params = _identity_columns(provider, profile)
+    linked_column = PROVIDER_FIELDS[provider]["linked"]
+    assignments = ", ".join(f"{column} = ?" for column in columns)
+    try:
+        user_id = execute(
+            "INSERT INTO users (email, name, password_hash, role) VALUES (?, ?, NULL, 'customer')",
+            (email, name),
+        )
+        execute(
+            f"UPDATE users SET {assignments}, {linked_column} = datetime('now') WHERE id = ?",
+            (*params, user_id),
+        )
+    except sqlite3.IntegrityError:
+        return err(
+            "That account is already linked elsewhere. Sign in instead.",
+            409,
+        )
+    execute("DELETE FROM oauth_pending WHERE token_hash = ?", (row["token_hash"],))
+    session.pop(OAUTH_PENDING_KEY, None)
+    auth.login_user(user_id, provider)
+    notify.customer_notify(
+        user_id,
+        "account",
+        "Welcome to the shop",
+        f"Your account was created with {provider.title()}. Add a password or another provider in Account settings.",
+    )
+    return jsonify(user=auth.public_user(auth.current_user()))
+
+
+@app.post("/api/auth/oauth/cancel")
+def oauth_cancel():
+    token = session.pop(OAUTH_PENDING_KEY, None)
+    if token:
+        execute("DELETE FROM oauth_pending WHERE token_hash = ?", (auth.hash_token(str(token)),))
+    return jsonify(ok=True)
+
+
+# ------------------------------------------------------------- avatar uploads
+@app.post("/api/me/avatar")
+@auth.login_required
+def upload_avatar():
+    if too_many(20, 300):
+        return err("Too many uploads. Try again in a few minutes.", 429)
+    upload = request.files.get("avatar")
+    if not upload:
+        return err("Pick an image to upload.")
+    raw = upload.read(social.MAX_AVATAR_BYTES + 1)
+    ext, error = social.validate_avatar_bytes(raw)
+    if error:
+        return err(error)
+    user = auth.current_user()
+    old_name = social.avatar_filename(user)
+    name = social.store_avatar(raw, ext)
+    execute(
+        "UPDATE users SET avatar_file = ?, avatar = NULL WHERE id = ?",
+        (name, user["id"]),
+    )
+    if old_name:
+        social.delete_avatar_file(old_name)
+    g.pop("user", None)
+    return jsonify(user=auth.public_user(auth.current_user()))
+
+
+@app.delete("/api/me/avatar")
+@auth.login_required
+def remove_avatar():
+    user = auth.current_user()
+    old_name = social.avatar_filename(user)
+    execute(
+        "UPDATE users SET avatar_file = NULL, avatar = NULL WHERE id = ?", (user["id"],)
+    )
+    if old_name:
+        social.delete_avatar_file(old_name)
+    g.pop("user", None)
+    return jsonify(user=auth.public_user(auth.current_user()))
+
+
+@app.get("/api/avatars/<path:filename>")
+def avatar_file(filename: str):
+    if not social.avatar_path(filename):
+        return err("Not found.", 404)
+    response = send_from_directory(str(social.AVATAR_DIR), filename, max_age=31536000)
+    response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    return response
+
+
+# ------------------------------------------------------------ account security
+def _connections_payload(user: dict) -> dict:
+    method_count = auth.count_login_methods(user)
+    return {
+        "email": user["email"],
+        "syntheticEmail": str(user["email"]).endswith("@users.kudsi.local"),
+        "methodCount": method_count,
+        "canDisconnect": method_count > 1,
+        "password": {"connected": bool(user.get("password_hash") or user.get("has_password"))},
+        "google": {
+            "connected": bool(user.get("google_sub")),
+            "email": user.get("google_email") or "",
+            "name": user.get("google_name") or "",
+            "avatar": user.get("google_avatar") or "",
+            "linkedAt": user.get("google_linked_at"),
+        },
+        "discord": {
+            "connected": bool(user.get("discord_id")),
+            "username": user.get("discord_username") or "",
+            "globalName": user.get("discord_global_name") or "",
+            "email": user.get("discord_email") or "",
+            "avatar": social.discord_avatar_url(
+                user.get("discord_id"), user.get("discord_avatar")
+            )
+            or "",
+            "linkedAt": user.get("discord_linked_at"),
+            "verified": bool(user.get("discord_verified_at")),
+        },
+    }
+
+
+@app.get("/api/account/security")
+@auth.login_required
+def account_security():
+    user = auth.current_user()
+    return jsonify(
+        connections=_connections_payload(user),
+        sessions=auth.list_sessions(user["id"], session.get("sid")),
+        activity=auth.login_activity(user["id"], 20),
+    )
+
+
+@app.post("/api/account/connections/<provider>/disconnect")
+@auth.login_required
+def disconnect_provider(provider: str):
+    if too_many(20, 300):
+        return err("Too many attempts. Try again in a few minutes.", 429)
+    provider = str(provider or "").lower()
+    if provider not in PROVIDER_FIELDS:
+        return err("Unknown sign-in provider.")
+    user = auth.current_user()
+    id_field = PROVIDER_FIELDS[provider]["id"]
+    if not user.get(id_field):
+        return err("That account is not connected.")
+    if auth.count_login_methods(user) <= 1:
+        return err(
+            "Connect another sign-in method first, then you can disconnect this one.",
+            409,
+        )
+
+    if provider == "discord" and user.get("discord_verified_at") and social.bot_configured():
+        try:
+            social.remove_role(user["discord_id"])
+        except social.DiscordError as exc:
+            # The shop account can still be unlinked; the role may need manual
+            # cleanup in Discord. Never block the customer on Discord downtime.
+            print(f"[discord] role removal on unlink failed: {exc}")
+
+    fields = PROVIDER_FIELDS[provider]
+    columns = [column for key, column in fields.items() if key != "linked"]
+    columns.append(fields["linked"])
+    if provider == "discord":
+        columns += [
+            "discord_verified_at",
+            "discord_verified_guild",
+            "discord_verified_role",
+            "discord_verified_by",
+            "discord_check_at",
+            "discord_check_status",
+            "discord_check_detail",
+        ]
+    assignments = ", ".join(f"{column} = NULL" for column in columns)
+    execute(f"UPDATE users SET {assignments} WHERE id = ?", (user["id"],))
+    g.pop("user", None)
+    notify.customer_notify(
+        user["id"],
+        "security",
+        f"{provider.title()} disconnected",
+        f"{provider.title()} can no longer be used to sign in to this shop account.",
+    )
+    return jsonify(ok=True, user=auth.public_user(auth.current_user()))
+
+
+@app.post("/api/account/password")
+@auth.login_required
+def change_password():
+    if too_many(10, 300):
+        return err("Too many attempts. Try again in a few minutes.", 429)
+    data = body()
+    current = str(data.get("currentPassword") or "")
+    new = str(data.get("newPassword") or "")
+    user = auth.current_user()
+    if len(new) < 8:
+        return err("Password must be at least 8 characters.")
+    if len(new) > 200:
+        return err("That password is too long.")
+    if user.get("password_hash") and not auth.verify_password(current, user["password_hash"]):
+        return err("Your current password is incorrect.", 403)
+    execute(
+        "UPDATE users SET password_hash = ? WHERE id = ?",
+        (auth.hash_password(new), user["id"]),
+    )
+    execute(
+        "UPDATE password_resets SET revoked_at = datetime('now') "
+        "WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL",
+        (user["id"],),
+    )
+    auth.revoke_other_sessions(user["id"], session.get("sid"))
+    g.pop("user", None)
+    notify.customer_notify(
+        user["id"],
+        "security",
+        "Password updated",
+        "Your password was changed and other sessions were signed out.",
+    )
+    return jsonify(ok=True)
+
+
+@app.post("/api/account/sessions/revoke-others")
+@auth.login_required
+def revoke_other_sessions():
+    user = auth.current_user()
+    revoked = auth.revoke_other_sessions(user["id"], session.get("sid"))
+    return jsonify(
+        ok=True,
+        revoked=revoked,
+        sessions=auth.list_sessions(user["id"], session.get("sid")),
+    )
+
+
+@app.get("/api/account/discord/verification")
+@auth.login_required
+def discord_verification_status():
+    user = auth.current_user()
+    cfg = social.bot_config()
+    return jsonify(
+        configured=social.bot_configured(),
+        connected=bool(user.get("discord_id")),
+        username=user.get("discord_username") or "",
+        globalName=user.get("discord_global_name") or "",
+        verified=bool(user.get("discord_verified_at")),
+        verifiedAt=user.get("discord_verified_at"),
+        lastCheckAt=user.get("discord_check_at"),
+        lastCheckStatus=user.get("discord_check_status") or "",
+        joinUrl=cfg["invite"] or "",
+    )
+
+
+@app.post("/api/account/discord/verify")
+@auth.login_required
+def verify_discord():
+    if too_many(8, 300):
+        return err("Too many verification attempts. Try again in a few minutes.", 429)
+    user = auth.current_user()
+    if not user.get("discord_id"):
+        return err("Connect your Discord account first.", 409)
+    if not social.bot_configured():
+        return err(
+            "Discord verification is not configured yet. Add the bot token, server ID "
+            "and verified role ID on the server.",
+            503,
+        )
+    cfg = social.bot_config()
+    try:
+        result = social.verify_and_assign(user["discord_id"])
+    except social.DiscordError as exc:
+        _record_discord_check(user["id"], "error", str(exc))
+        return err(str(exc), exc.status)
+
+    if result["status"] == "not_member":
+        _record_discord_check(user["id"], "not_member", "Not a member of the server")
+        return (
+            jsonify(
+                error="You are not in the Discord server yet. Join it, then try again.",
+                code="not_member",
+                joinUrl=cfg["invite"] or "",
+            ),
+            409,
+        )
+    if not result.get("hasRole"):
+        _record_discord_check(user["id"], "not_verified", "Role was not assigned")
+        return err("Discord did not confirm the role. Try again in a moment.", 502)
+
+    execute(
+        "UPDATE users SET discord_verified_at = COALESCE(discord_verified_at, datetime('now')), "
+        "discord_verified_guild = ?, discord_verified_role = ?, discord_verified_by = NULL, "
+        "discord_check_at = datetime('now'), discord_check_status = 'verified', "
+        "discord_check_detail = '' WHERE id = ?",
+        (cfg["guild"], cfg["role"], user["id"]),
+    )
+    g.pop("user", None)
+    notify.customer_notify(
+        user["id"],
+        "security",
+        "Discord verified",
+        "Your special role was added on the official Discord server.",
+    )
+    return jsonify(
+        ok=True,
+        verified=True,
+        status=result["status"],
+        user=auth.public_user(auth.current_user()),
+    )
 
 
 # -------------------------------------------------------------------- products
@@ -801,7 +1454,7 @@ def site_payload() -> dict:
             "minTopup": round(cfg["minTopupCents"] / 100, 2),
             "methods": wallet.withdrawal_methods(public=True),
         },
-        "auth": {"resetHours": auth.reset_hours()},
+        "auth": {"resetHours": auth.reset_hours(), **social.providers_payload()},
     }
 
 
@@ -1765,7 +2418,9 @@ def admin_transactions():
         where.append("(u.email LIKE ? OR u.name LIKE ? OR t.reference LIKE ?)")
         params += [like, like, like]
     rows = fetch_all(
-        f"""SELECT t.*, u.email, u.name FROM wallet_transactions t
+        f"""SELECT t.*, u.email, u.name, u.avatar, u.avatar_file,
+                   u.google_sub, u.google_avatar, u.discord_id, u.discord_avatar
+            FROM wallet_transactions t
             JOIN users u ON u.id = t.user_id
             WHERE {' AND '.join(where)}
             ORDER BY t.id DESC LIMIT 200""",
@@ -1777,6 +2432,7 @@ def admin_transactions():
         item["customer"] = row["name"] or row["email"]
         item["email"] = row["email"]
         item["userId"] = row["user_id"]
+        item["avatar"] = social.avatar_url(row)
         out.append(item)
     return jsonify(transactions=out)
 
@@ -1891,15 +2547,17 @@ def admin_customers():
     q = clean(request.args.get("q"), 190)
     role = clean(request.args.get("role"), 20)
     product_id = clean(request.args.get("product"), 64)
+    social_filter = clean(request.args.get("social"), 20).lower()
 
     where = ["1 = 1"]
     params: list = []
     if q:
         where.append(
             "(u.email LIKE ? OR u.name LIKE ? OR u.contact_handle LIKE ? "
-            "OR CAST(u.id AS TEXT) = ?)"
+            "OR u.google_email LIKE ? OR u.discord_username LIKE ? "
+            "OR u.discord_global_name LIKE ? OR CAST(u.id AS TEXT) = ?)"
         )
-        params += [f"%{q}%", f"%{q}%", f"%{q}%", q]
+        params += [f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", f"%{q}%", q]
     if role in {"customer", "admin"}:
         where.append("u.role = ?")
         params.append(role)
@@ -1909,9 +2567,22 @@ def admin_customers():
             "WHERE o2.user_id = u.id AND i2.product_id = ?)"
         )
         params.append(product_id)
+    if social_filter == "google":
+        where.append("u.google_sub IS NOT NULL")
+    elif social_filter == "discord":
+        where.append("u.discord_id IS NOT NULL")
+    elif social_filter == "verified":
+        where.append("u.discord_verified_at IS NOT NULL")
+    elif social_filter == "none":
+        where.append("u.google_sub IS NULL AND u.discord_id IS NULL")
 
     sql = f"""
-        SELECT u.id, u.email, u.name, u.role, u.avatar, u.contact_type, u.contact_handle,
+        SELECT u.id, u.email, u.name, u.role, u.avatar, u.avatar_file,
+               u.google_sub, u.google_email, u.google_name, u.google_avatar,
+               u.discord_id, u.discord_email, u.discord_username, u.discord_global_name,
+               u.discord_avatar, u.discord_verified_at, u.discord_verified_role,
+               u.discord_check_at, u.discord_check_status,
+               u.contact_type, u.contact_handle,
                u.created_at, u.last_login, u.status,
                u.balance_cents, u.deposited_cents, u.withdrawn_cents,
                COUNT(DISTINCT o.id) AS order_count,
@@ -1961,14 +2632,20 @@ def admin_customers():
         r["withdrawn"] = round(r["withdrawn_cents"] / 100, 2)
         del r["spent_cents"], r["balance_cents"], r["deposited_cents"], r["withdrawn_cents"]
 
+    rows = [social.decorate_user(row) for row in rows]
     return jsonify(customers=rows)
 
 
 def _customer_row(user_id: int) -> dict | None:
     return fetch_one(
-        """SELECT id, email, name, role, avatar, contact_type, contact_handle, created_at,
-                  last_login, status, suspended_reason, balance_cents, deposited_cents,
-                  withdrawn_cents
+        """SELECT id, email, name, role, avatar, avatar_file, contact_type, contact_handle,
+                  created_at, last_login, status, suspended_reason, balance_cents,
+                  deposited_cents, withdrawn_cents, password_hash,
+                  google_sub, google_email, google_name, google_avatar, google_linked_at,
+                  discord_id, discord_email, discord_username, discord_global_name,
+                  discord_avatar, discord_linked_at, discord_verified_at,
+                  discord_verified_guild, discord_verified_role, discord_verified_by,
+                  discord_check_at, discord_check_status, discord_check_detail
            FROM users WHERE id = ?""",
         (user_id,),
     )
@@ -1976,6 +2653,8 @@ def _customer_row(user_id: int) -> dict | None:
 
 def _customer_json(row: dict) -> dict:
     data = dict(row)
+    data["hasPassword"] = bool(row.get("password_hash"))
+    data.pop("password_hash", None)
     data["balance"] = round(row["balance_cents"] / 100, 2)
     data["deposited"] = round(row["deposited_cents"] / 100, 2)
     data["withdrawn"] = round(row["withdrawn_cents"] / 100, 2)
@@ -1984,6 +2663,8 @@ def _customer_json(row: dict) -> dict:
     data["orders"] = fetch_one(
         "SELECT COUNT(*) AS n FROM orders WHERE user_id = ?", (row["id"],)
     )["n"]
+    data = social.decorate_user(data)
+    data["discordVerifiedRoleAssigned"] = bool(row.get("discord_verified_role"))
     return data
 
 
@@ -2017,6 +2698,97 @@ def admin_customer_wallet(user_id: int):
     return jsonify(wallet_payload(user_id))
 
 
+@app.post("/api/admin/customers/<int:user_id>/discord/revoke")
+@auth.admin_required
+def admin_revoke_discord(user_id: int):
+    row = _customer_row(user_id)
+    if not row:
+        return err("Customer not found.", 404)
+    if not row.get("discord_id"):
+        return err("This customer has no Discord account linked.")
+    detail = ""
+    if social.bot_configured():
+        try:
+            result = social.remove_role(row["discord_id"])
+            detail = (
+                "Discord role removed."
+                if result.get("removed")
+                else "The customer no longer had that role on Discord."
+            )
+        except social.DiscordError as exc:
+            # Keep the local verification so the admin can retry safely.
+            _record_discord_check(user_id, "error", str(exc))
+            return err(f"Could not remove the Discord role: {exc}", exc.status)
+    else:
+        detail = (
+            "Verification cleared locally. The Discord bot is not configured, so the "
+            "role may still exist on the server."
+        )
+    execute(
+        "UPDATE users SET discord_verified_at = NULL, discord_verified_guild = NULL, "
+        "discord_verified_role = NULL, discord_verified_by = NULL, "
+        "discord_check_at = datetime('now'), discord_check_status = 'revoked', "
+        "discord_check_detail = ? WHERE id = ?",
+        (detail[:300], user_id),
+    )
+    notify.customer_notify(
+        user_id,
+        "security",
+        "Discord verification removed",
+        "An administrator removed your verified role status. You can verify again from Account settings.",
+    )
+    return jsonify(
+        ok=True,
+        detail=detail,
+        customer=_customer_json(_customer_row(user_id)),
+    )
+
+
+@app.post("/api/admin/customers/<int:user_id>/discord/recheck")
+@auth.admin_required
+def admin_recheck_discord(user_id: int):
+    row = _customer_row(user_id)
+    if not row:
+        return err("Customer not found.", 404)
+    if not row.get("discord_id"):
+        return err("This customer has no Discord account linked.")
+    if not social.bot_configured():
+        return err("Discord verification is not configured on this server.", 503)
+    try:
+        result = social.check_member_role(row["discord_id"])
+    except social.DiscordError as exc:
+        _record_discord_check(user_id, "error", str(exc))
+        return err(str(exc), exc.status)
+
+    cfg = social.bot_config()
+    if result.get("member") and result.get("hasRole"):
+        execute(
+            "UPDATE users SET discord_verified_at = COALESCE(discord_verified_at, datetime('now')), "
+            "discord_verified_guild = ?, discord_verified_role = ?, "
+            "discord_check_at = datetime('now'), discord_check_status = 'verified', "
+            "discord_check_detail = 'Checked by an administrator' WHERE id = ?",
+            (cfg["guild"], cfg["role"], user_id),
+        )
+    else:
+        execute(
+            "UPDATE users SET discord_verified_at = NULL, discord_verified_guild = NULL, "
+            "discord_verified_role = NULL, discord_check_at = datetime('now'), "
+            "discord_check_status = ?, discord_check_detail = ? WHERE id = ?",
+            (
+                "not_member" if not result.get("member") else "not_verified",
+                "Checked by an administrator",
+                user_id,
+            ),
+        )
+    return jsonify(
+        ok=True,
+        member=bool(result.get("member")),
+        hasRole=bool(result.get("hasRole")),
+        status=result.get("status"),
+        customer=_customer_json(_customer_row(user_id)),
+    )
+
+
 @app.get("/api/admin/customers/<int:user_id>/transactions")
 @auth.admin_required
 def admin_customer_transactions(user_id: int):
@@ -2048,12 +2820,13 @@ def admin_set_password(user_id: int):
         "UPDATE users SET password_hash = ? WHERE id = ?",
         (auth.hash_password(password), user_id),
     )
-    # A manual password change kills every outstanding reset link.
+    # A manual password change kills every outstanding reset link and session.
     execute(
         "UPDATE password_resets SET revoked_at = datetime('now') "
         "WHERE user_id = ? AND used_at IS NULL AND revoked_at IS NULL",
         (user_id,),
     )
+    auth.revoke_other_sessions(user_id, None)
     notify.customer_notify(
         user_id, "security", "Password updated", "An administrator set a new password for your account."
     )
@@ -2153,6 +2926,8 @@ def admin_set_status(user_id: int):
         "UPDATE users SET status = ?, suspended_reason = ? WHERE id = ?",
         (status, reason if status == "suspended" else None, user_id),
     )
+    if status == "suspended":
+        auth.revoke_other_sessions(user_id, None)
     notify.customer_notify(
         user_id,
         "account",
@@ -2199,14 +2974,33 @@ def admin_orders():
         params.append(status)
 
     rows = fetch_all(
-        f"SELECT o.* FROM orders o WHERE {' AND '.join(where)} "
-        "ORDER BY o.created_at DESC LIMIT 300",
+        f"""SELECT o.*, u.name AS customer_name, u.avatar AS customer_avatar,
+                   u.avatar_file AS customer_avatar_file,
+                   u.google_sub AS customer_google_sub, u.google_avatar AS customer_google_avatar,
+                   u.discord_id AS customer_discord_id, u.discord_avatar AS customer_discord_avatar
+            FROM orders o LEFT JOIN users u ON u.id = o.user_id
+            WHERE {' AND '.join(where)}
+            ORDER BY o.created_at DESC LIMIT 300""",
         tuple(params),
     )
     out = []
     for row in rows:
         _, items = load_order(row["id"])
-        out.append(order_json(row, items, include_codes=True))
+        item = order_json(row, items, include_codes=True)
+        profile = social.decorate_user(
+            {
+                "name": row.get("customer_name") or item.get("email"),
+                "avatar": row.get("customer_avatar"),
+                "avatar_file": row.get("customer_avatar_file"),
+                "google_sub": row.get("customer_google_sub"),
+                "google_avatar": row.get("customer_google_avatar"),
+                "discord_id": row.get("customer_discord_id"),
+                "discord_avatar": row.get("customer_discord_avatar"),
+            }
+        )
+        item["avatar"] = profile.get("avatar") if profile else None
+        item["customerName"] = row.get("customer_name") or ""
+        out.append(item)
     return jsonify(orders=out)
 
 
@@ -2894,7 +3688,9 @@ def admin_delete_withdrawal_method(method_id):
 @auth.admin_required
 def admin_conversations():
     rows = fetch_all(
-        """SELECT u.id, u.email, u.name, u.avatar, u.contact_type, u.contact_handle,
+        """SELECT u.id, u.email, u.name, u.avatar, u.avatar_file, u.contact_type, u.contact_handle,
+                  u.google_sub, u.discord_id, u.discord_username, u.discord_avatar,
+                  u.discord_verified_at,
                   (SELECT body FROM messages m WHERE m.user_id = u.id ORDER BY m.id DESC LIMIT 1) AS last_body,
                   (SELECT created_at FROM messages m WHERE m.user_id = u.id ORDER BY m.id DESC LIMIT 1) AS last_at,
                   (SELECT COUNT(*) FROM messages m WHERE m.user_id = u.id AND m.sender = 'customer'
@@ -2903,18 +3699,21 @@ def admin_conversations():
            WHERE EXISTS (SELECT 1 FROM messages m WHERE m.user_id = u.id)
            ORDER BY last_at DESC"""
     )
-    return jsonify(conversations=rows)
+    return jsonify(conversations=[social.decorate_user(row) for row in rows])
 
 
 @app.get("/api/admin/conversations/<int:user_id>")
 @auth.admin_required
 def admin_conversation(user_id):
     user = fetch_one(
-        "SELECT id, email, name, avatar, contact_type, contact_handle FROM users WHERE id = ?",
+        "SELECT id, email, name, avatar, avatar_file, contact_type, contact_handle, "
+        "google_sub, discord_id, discord_username, discord_avatar, discord_verified_at "
+        "FROM users WHERE id = ?",
         (user_id,),
     )
     if not user:
         return err("Customer not found.", 404)
+    user = social.decorate_user(user)
     rows = fetch_all(
         "SELECT id, sender, body, created_at FROM messages WHERE user_id = ? ORDER BY id",
         (user_id,),

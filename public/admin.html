@@ -9,6 +9,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
   <link rel="stylesheet" href="/css/ui.css?v=8" />
+  <link rel="stylesheet" href="/css/social.css?v=1" />
 </head>
 <body>
   <div class="app">
@@ -218,6 +219,13 @@
               <option value="customer">Customers</option>
               <option value="admin">Admins</option>
             </select>
+            <select id="customerSocial" aria-label="Filter by sign-in method">
+              <option value="">All sign-in methods</option>
+              <option value="google">Google connected</option>
+              <option value="discord">Discord connected</option>
+              <option value="verified">Discord verified</option>
+              <option value="none">No social accounts</option>
+            </select>
             <span class="spacer"></span>
             <span class="small muted" id="customerCount"></span>
           </div>
@@ -232,13 +240,14 @@
                   <th class="num hide-md">Deposited</th>
                   <th class="num hide-md">Withdrawn</th>
                   <th class="num">Orders</th>
+                  <th>Sign-in</th>
                   <th>Status</th>
                   <th class="hide-sm">Joined</th>
                   <th></th>
                 </tr>
               </thead>
               <tbody id="customersBody">
-                <tr><td colspan="9" class="empty-row"><span class="spinner"></span> Loading customers…</td></tr>
+                <tr><td colspan="10" class="empty-row"><span class="spinner"></span> Loading customers…</td></tr>
               </tbody>
             </table>
           </div>
@@ -759,9 +768,9 @@
     </div>
   </div>
 
-  <script src="/js/api.js?v=8"></script>
+  <script src="/js/api.js?v=15"></script>
   <script src="/js/chart.js"></script>
-  <script src="/js/admin.js?v=12"></script>
-  <script src="/js/admin-wallet.js?v=12"></script>
+  <script src="/js/admin.js?v=13"></script>
+  <script src="/js/admin-wallet.js?v=13"></script>
 </body>
 </html>

@@ -245,7 +245,15 @@ generated link.
 
 - Passwords: `hashlib.scrypt` with per-user salt; never stored in plain text.
 - Sessions: signed, HttpOnly, SameSite=Lax cookies (14 days). Set `COOKIE_SECURE=1`
-  behind HTTPS.
+  behind HTTPS. Each browser also has a hashed session record so "sign out other
+  sessions" works and a stolen cookie can be revoked immediately.
+- OAuth: random single-use `state` values are checked on every callback; provider
+  identities are unique; accounts are never merged just because an email matches.
+  Tokens and client secrets never reach the browser.
+- Avatars: uploads are type-checked from file bytes (not the filename), capped at
+  2 MB, stored with random names, and served with `nosniff` plus a long cache.
+- Discord: the bot verifies real guild membership and role hierarchy server-side.
+  A customer cannot mark themselves verified by editing a request.
 - Login/signup/messages are rate-limited per IP.
 - Prices are always read from the database — a tampered cart can't change the total.
 - `/api/admin/*` requires `role = 'admin'`; page guards redirect customers away from
@@ -254,6 +262,104 @@ generated link.
 - Binance secrets saved from the dashboard are stored in `data/store.db` (plain text);
   protect that file. `.env` values are never written back to the database read path.
 - Set `SECRET_KEY` in production so sessions survive restarts.
+
+## 7b. Social sign-in, avatars and Discord verification
+
+Accounts can now use Google, Discord, or email + password. All three are the
+same shop account; profiles, orders, balance and codes carry over.
+
+### What customers see
+
+- **Sign in / sign up** — Google and Discord buttons next to the email form.
+  Social sign-ups get one short completion page that asks only for a display
+  name. Existing account names are never changed automatically.
+- **Account → Connected accounts** — shows email/password, Google and Discord
+  with provider icons and profile pictures. Connect or disconnect any method.
+  The last remaining sign-in method cannot be disconnected.
+- **Account → Security centre** — active sessions (sign out other browsers),
+  recent sign-in activity with masked IPs, and password change. Customers who
+  signed up with Google/Discord are not forced to create a password.
+- **Account → Discord verification** — checks real membership in your Discord
+  server with the bot, then assigns the configured role. If they are not in the
+  server yet, the page shows your invite link.
+- **Avatars** — custom upload first, then Discord, then Google, then the first
+  letter of the display name. Uploads are validated by real file type (JPG,
+  PNG or WebP, max 2 MB) and stored under `NEXUSKEYS_DATA_DIR/avatars` with
+  random filenames, so backups of `data/` include them.
+
+### Configure Google
+
+1. Google Cloud Console → **APIs & Services → OAuth consent screen**. Add your
+   domain as an authorised domain and publish the app when ready.
+2. **Credentials → Create credentials → OAuth client ID → Web application**.
+3. Authorised redirect URI:
+   `https://YOUR-DOMAIN/auth/google/callback`
+   (use `http://localhost:3000/auth/google/callback` for local testing).
+4. Put the client ID and secret in the environment:
+   `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
+
+### Configure Discord
+
+1. Discord Developer Portal → **Applications → OAuth2**. Add the redirect:
+   `https://YOUR-DOMAIN/auth/discord/callback`
+   (local: `http://localhost:3000/auth/discord/callback`).
+2. Copy the client ID and secret to `DISCORD_CLIENT_ID` and
+   `DISCORD_CLIENT_SECRET`. The shop requests `identify email` only.
+3. Create a bot (**Bot → Add Bot**) and copy its token to
+   `DISCORD_BOT_TOKEN`. Invite the bot to your server with **Manage Roles**.
+4. Create the role customers should receive and copy its ID to
+   `DISCORD_VERIFIED_ROLE_ID`; copy the server ID to `DISCORD_GUILD_ID`.
+5. In **Server Settings → Roles**, drag the bot's own role **above** the
+   verified role. A bot can never assign a role at or above its own position.
+6. Optional: set `DISCORD_INVITE_URL` to your public invite so the account page
+   can offer a Join button.
+
+Verification is idempotent: the bot checks membership and whether the role is
+already present before assigning it. Admins can recheck or revoke a customer's
+verification from the customer profile; revocation also asks Discord to remove
+the role. Client-provided IDs or "verified" flags are never trusted.
+
+### Admin customer views
+
+The customer table now shows Google/Discord badges, the Discord username and
+verification state. Filters: **Google connected**, **Discord connected**,
+**Discord verified** and **No social accounts**. The customer profile has a
+Sign-in & identity panel plus Discord recheck/revoke buttons.
+
+### Database and deployment
+
+`init_db()` migrates existing databases automatically. It adds the social and
+avatar columns to `users`, creates `user_sessions`, `login_events` and
+`oauth_pending`, and adds unique partial indexes on `google_sub` and
+`discord_id` so one provider identity cannot be linked to two shop accounts.
+There is no destructive migration: existing customers, IDs, balances, orders
+and history stay exactly as they are.
+
+Required environment variables for the full feature set:
+
+```
+GOOGLE_CLIENT_ID
+GOOGLE_CLIENT_SECRET
+DISCORD_CLIENT_ID
+DISCORD_CLIENT_SECRET
+DISCORD_BOT_TOKEN
+DISCORD_GUILD_ID
+DISCORD_VERIFIED_ROLE_ID
+DISCORD_INVITE_URL          # optional, for the Join button
+SECRET_KEY                  # already used by the shop
+PUBLIC_BASE_URL             # used to build OAuth redirect URIs
+```
+
+On PythonAnywhere the same `.env` file is used. Set `PUBLIC_BASE_URL` to
+`https://90dsi.pythonanywhere.com`, keep `COOKIE_SECURE=1` and `TRUST_PROXY=1`,
+and make sure `NEXUSKEYS_DATA_DIR` (e.g. `~/kudsi-data`) is writable so
+`avatars/` can be created. After uploading/pulling the new files and adding
+the variables, click **Reload** on the Web tab.
+
+> **Status:** the OAuth and Discord code is implemented and the local flows
+> (accounts, sessions, avatars, security centre, admin filters) are tested.
+> Real Google/Discord sign-in and role assignment can only be confirmed after
+> the credentials above are added and the redirect URIs registered.
 
 ## 8. Going live
 

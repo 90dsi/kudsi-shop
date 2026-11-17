@@ -25,7 +25,26 @@ CREATE TABLE IF NOT EXISTS users (
     contact_type   TEXT,                      -- telegram | discord
     contact_handle TEXT,
     created_at     TEXT NOT NULL DEFAULT (datetime('now')),
-    last_login     TEXT
+    last_login     TEXT,
+    avatar_file    TEXT,                      -- random filename under data/avatars
+    google_sub     TEXT,                      -- Google OpenID subject (unique)
+    google_email   TEXT,
+    google_name    TEXT,
+    google_avatar  TEXT,
+    google_linked_at TEXT,
+    discord_id     TEXT,                      -- Discord snowflake (unique)
+    discord_email  TEXT,
+    discord_username TEXT,
+    discord_global_name TEXT,
+    discord_avatar TEXT,                      -- avatar hash, not a full URL
+    discord_linked_at TEXT,
+    discord_verified_at TEXT,
+    discord_verified_guild TEXT,
+    discord_verified_role TEXT,
+    discord_verified_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    discord_check_at TEXT,
+    discord_check_status TEXT,
+    discord_check_detail TEXT
 );
 
 CREATE TABLE IF NOT EXISTS products (
@@ -226,6 +245,51 @@ CREATE TABLE IF NOT EXISTS notifications (
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+-- One row per signed-in browser. The cookie holds a random token; only its
+-- SHA-256 hash is stored here, so a database leak cannot revive sessions.
+CREATE TABLE IF NOT EXISTS user_sessions (
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    token_hash   TEXT NOT NULL UNIQUE,
+    provider     TEXT NOT NULL DEFAULT 'password',
+    ip           TEXT,
+    user_agent   TEXT,
+    created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+    last_seen_at TEXT,
+    revoked_at   TEXT
+);
+
+-- Login history for the customer security centre. Full IPs stay server-side;
+-- the API only returns a masked address.
+CREATE TABLE IF NOT EXISTS login_events (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id    INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    email      TEXT,
+    provider   TEXT NOT NULL DEFAULT 'password',
+    status     TEXT NOT NULL DEFAULT 'success',
+    ip         TEXT,
+    user_agent TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
+-- Short-lived OAuth profile waiting for the customer to choose a display name.
+-- The browser only holds an opaque token; the profile stays server-side.
+CREATE TABLE IF NOT EXISTS oauth_pending (
+    token_hash     TEXT PRIMARY KEY,
+    provider       TEXT NOT NULL,
+    provider_id    TEXT NOT NULL,
+    email          TEXT,
+    email_verified INTEGER NOT NULL DEFAULT 0,
+    name           TEXT,
+    username       TEXT,
+    global_name    TEXT,
+    avatar         TEXT,
+    avatar_hash    TEXT,
+    next_url       TEXT,
+    created_at     TEXT NOT NULL DEFAULT (datetime('now')),
+    expires_at     INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS notification_log (
     id         INTEGER PRIMARY KEY AUTOINCREMENT,
     channel    TEXT NOT NULL,
@@ -250,6 +314,9 @@ CREATE INDEX IF NOT EXISTS idx_withdraw_user ON withdrawals(user_id, created_at)
 CREATE INDEX IF NOT EXISTS idx_withdraw_state ON withdrawals(status, created_at);
 CREATE INDEX IF NOT EXISTS idx_resets_user   ON password_resets(user_id, id);
 CREATE INDEX IF NOT EXISTS idx_notif_user    ON notifications(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_sessions_user ON user_sessions(user_id, id);
+CREATE INDEX IF NOT EXISTS idx_sessions_tok  ON user_sessions(token_hash);
+CREATE INDEX IF NOT EXISTS idx_login_user    ON login_events(user_id, id);
 -- One ledger row per reference+kind: replaying an approval can never pay twice.
 CREATE UNIQUE INDEX IF NOT EXISTS uq_wallet_kind_ref
     ON wallet_transactions(kind, reference) WHERE reference IS NOT NULL;
@@ -321,6 +388,25 @@ MIGRATIONS = {
         ("withdrawn_cents", "INTEGER NOT NULL DEFAULT 0"),
         ("status", "TEXT NOT NULL DEFAULT 'active'"),
         ("suspended_reason", "TEXT"),
+        ("avatar_file", "TEXT"),
+        ("google_sub", "TEXT"),
+        ("google_email", "TEXT"),
+        ("google_name", "TEXT"),
+        ("google_avatar", "TEXT"),
+        ("google_linked_at", "TEXT"),
+        ("discord_id", "TEXT"),
+        ("discord_email", "TEXT"),
+        ("discord_username", "TEXT"),
+        ("discord_global_name", "TEXT"),
+        ("discord_avatar", "TEXT"),
+        ("discord_linked_at", "TEXT"),
+        ("discord_verified_at", "TEXT"),
+        ("discord_verified_guild", "TEXT"),
+        ("discord_verified_role", "TEXT"),
+        ("discord_verified_by", "INTEGER"),
+        ("discord_check_at", "TEXT"),
+        ("discord_check_status", "TEXT"),
+        ("discord_check_detail", "TEXT"),
     ],
     "products": [
         ("variants", "TEXT"),
@@ -369,6 +455,7 @@ DEFAULT_SETTINGS = {
     "app_logo": "K",
     "theme_accent": "#6c5ce7",
     "maintenance_mode": "0",
+    "discord_invite_url": "",
     # ---- notifications
     "telegram_bot_token": "",
     "telegram_admin_chat_id": "",
@@ -481,6 +568,16 @@ def _migrate(con):
         for name, kind in columns:
             if name not in existing:
                 con.execute(f"ALTER TABLE {table} ADD COLUMN {name} {kind}")
+    # Provider identities must never belong to two shop accounts. The partial
+    # indexes ignore NULLs, so existing customers are untouched.
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_google_sub "
+        "ON users(google_sub) WHERE google_sub IS NOT NULL"
+    )
+    con.execute(
+        "CREATE UNIQUE INDEX IF NOT EXISTS uq_users_discord_id "
+        "ON users(discord_id) WHERE discord_id IS NOT NULL"
+    )
     for key, value in DEFAULT_SETTINGS.items():
         con.execute("INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)", (key, value))
 
