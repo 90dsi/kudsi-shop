@@ -267,8 +267,16 @@ input::placeholder, textarea::placeholder { color: #5d6684; }
   overflow: hidden;
 }
 .side-user .who { min-width: 0; }
-.side-user strong { display: block; font-size: 0.83rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.side-user span { display: block; font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-user .who strong { display: block; font-size: 0.83rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-user .who span { display: block; font-size: 0.72rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-user .avatar-letter {
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.86rem;
+  color: #08090d;
+  line-height: 1;
+  text-align: center;
+}
 
 /* ---------------------------------------------------------------- main */
 .main {
