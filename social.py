@@ -500,6 +500,17 @@ def guild_member(user_id: str) -> dict | None:
     cfg = bot_config()
     status, data = _bot_call("GET", f"/guilds/{cfg['guild']}/members/{user_id}")
     if status == 404:
+        # A 404 means either "that user is not in the server" or "the bot cannot
+        # see that server at all". Check the bot's own access so a missing bot
+        # invite is reported as an admin setup problem, not as the customer's
+        # fault.
+        guild_status, _ = _bot_call("GET", f"/guilds/{cfg['guild']}")
+        if guild_status == 404:
+            raise DiscordError(
+                "The Discord bot is not in the configured server yet. "
+                "Ask an admin to invite it, then try again.",
+                503,
+            )
         return None
     if status != 200 or not isinstance(data, dict):
         raise DiscordError("Could not read the Discord membership.", 502)
