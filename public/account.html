@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>My account — Kudsi Shop</title>
+  <title>Account — Kudsi Shop</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/css/styles.css" />
   <link rel="stylesheet" href="/css/ui.css?v=8" />
-  <link rel="stylesheet" href="/css/social.css?v=1" />
+  <link rel="stylesheet" href="/css/social.css?v=2" />
 </head>
 <body>
   <header class="site-header">
@@ -20,6 +20,7 @@
       <div class="header-actions">
         <a class="account-link" href="/dashboard.html">Dashboard</a>
         <a class="account-link" href="/wallet.html">Wallet</a>
+        <a class="account-link active" href="/account.html" aria-current="page">Account</a>
         <a class="account-link" href="/messages.html" id="messagesLink">Messages <span class="nav-badge" id="msgBadge" hidden>0</span></a>
         <a class="account-link" href="/">Store</a>
         <a class="account-link" href="/admin.html" id="adminLink" hidden>Admin</a>
@@ -31,8 +32,8 @@
   <main class="page-shell">
     <div class="page-head">
       <div>
-        <h1>My account</h1>
-        <p>Your details, sign-in methods and order history.</p>
+        <h1>Account</h1>
+        <p>Change your photo and display name, and see which sign-in methods are linked.</p>
       </div>
     </div>
 
@@ -44,6 +45,16 @@
           <span id="profileEmail"></span>
         </div>
         <span class="pill pill-customer" id="profileRole"></span>
+      </div>
+
+      <div class="linked-summary" id="linkedSummary">
+        <div class="linked-head">
+          <span class="linked-label">Sign-in methods</span>
+          <a class="linked-manage" href="#connectedCard">Manage</a>
+        </div>
+        <div class="linked-chips" id="linkedChips">
+          <span class="social-badge off">Loading…</span>
+        </div>
       </div>
 
       <form id="profileForm" style="margin-top: 1.2rem">
@@ -167,6 +178,6 @@
   </main>
 
   <script src="/js/api.js?v=15"></script>
-  <script src="/js/account.js?v=15"></script>
+  <script src="/js/account.js?v=16"></script>
 </body>
 </html>

@@ -168,6 +168,27 @@ function connectionCard(provider, data) {
     </div>`;
 }
 
+function renderLinkedSummary(data) {
+  const chips = [
+    `<span class="linked-chip ${data.password.connected ? "on" : "off"}">
+       <span class="linked-mark" aria-hidden="true">✉</span>
+       <span class="linked-name">Email &amp; password</span>
+       <span class="linked-state">${data.password.connected ? "Linked" : "Not linked"}</span>
+     </span>`,
+  ];
+  for (const provider of ["google", "discord"]) {
+    const connected = Boolean(data[provider] && data[provider].connected);
+    chips.push(
+      `<span class="linked-chip ${connected ? "on" : "off"}">
+         ${providerIcon(provider) || `<span class="linked-mark" aria-hidden="true">?</span>`}
+         <span class="linked-name">${esc(PROVIDER_LABEL[provider])}</span>
+         <span class="linked-state">${connected ? "Linked" : "Not linked"}</span>
+       </span>`
+    );
+  }
+  $("#linkedChips").innerHTML = chips.join("");
+}
+
 function renderConnections(data) {
   $("#connectionCount").textContent =
     `${data.methodCount} sign-in method${data.methodCount === 1 ? "" : "s"}`;
@@ -249,6 +270,7 @@ function renderActivity(activity) {
 
 async function loadSecurity() {
   security = await api.get("/api/account/security");
+  renderLinkedSummary(security.connections);
   renderConnections(security.connections);
   renderPassword(security.connections);
   renderSessions(security.sessions);
@@ -351,6 +373,7 @@ $("#profileForm").addEventListener("submit", async (event) => {
     });
     me = { ...me, ...user };
     renderProfile();
+    $("#nameInput").value = me.name || "";
     status.textContent = "Saved ✓";
     toast("Profile saved", "success");
   } catch (error) {
