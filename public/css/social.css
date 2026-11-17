@@ -130,6 +130,7 @@
   min-width: 0;
 }
 .connected-head { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
+.provider-mark { width: 22px; height: 22px; flex: none; display: block; }
 .connected-head .provider-mark { width: 22px; height: 22px; flex: none; }
 .connected-head .provider-fallback {
   width: 22px;
@@ -262,6 +263,8 @@
   background: rgba(88, 101, 242, 0.06);
 }
 .verify-box .verify-text { flex: 1; min-width: 190px; }
+.verify-box > .provider-mark,
+.verify-box > .provider-mark > svg { width: 26px; height: 26px; flex: none; }
 .verify-box .verify-text strong { display: block; font-size: 0.9rem; }
 .verify-box .verify-text span { display: block; color: var(--muted); font-size: 0.77rem; margin-top: 0.15rem; }
 .verify-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
